@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="800" height="800" version="1.1" viewBox="0 0 800 800" xmlns="http://www.w3.org/2000/svg">
+ <rect width="800" height="800" fill="#f8f9fa"/>
+ <g transform="translate(200,200)" fill="#dee2e6">
+  <path d="m200 120c0-44.183-35.817-80-80-80s-80 35.817-80 80 35.817 80 80 80 80-35.817 80-80zm-80 60c-33.137 0-60-26.863-60-60s26.863-60 60-60 60 26.863 60 60-26.863 60-60 60z"/>
+  <path d="m320 280h-400v-360h400v360zm-380-20h360v-320h-360v320z"/>
+  <path d="m300 220-80-80-60 60-80-80-60 60v100h280z"/>
+  <circle cx="120" cy="120" r="20"/>
+ </g>
+</svg>
