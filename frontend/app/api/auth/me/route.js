@@ -1,50 +1,44 @@
 import { NextResponse } from 'next/server';
-import { getUserFromToken } from '@/lib/auth';
+import { getToken } from '@/lib/auth';
+import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    // Get token from Authorization header
-    const authHeader = request.headers.get('authorization');
-    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7) : null;
+    const token = await getToken(request);
     
-    // Get token from cookies if available
-    let cookieToken = null;
-    const cookieHeader = request.headers.get('cookie');
-    if (cookieHeader) {
-      const cookies = cookieHeader.split(';').reduce((acc, cookie) => {
-        const [key, value] = cookie.trim().split('=');
-        acc[key] = value;
-        return acc;
-      }, {});
-      cookieToken = cookies['token'];
-    }
-    
-    // Use whichever token is available
-    const token = headerToken || cookieToken;
-
     if (!token) {
       return NextResponse.json(
-        { error: 'Not authenticated' },
+        { error: 'No token provided' },
         { status: 401 }
       );
     }
 
-    const user = await getUserFromToken(token);
+    const user = await prisma.user.findUnique({
+      where: { id: token.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        role: true,
+        createdAt: true,
+        updatedAt: true
+      }
+    });
 
     if (!user) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: 'User not found' },
         { status: 401 }
       );
     }
 
-    return NextResponse.json({ user });
+    return NextResponse.json({ user, token: token.token });
   } catch (error) {
-    console.error('Get user error:', error);
+    console.error('[Auth/Me] Error:', error);
     return NextResponse.json(
-      { error: 'An error occurred while fetching user data' },
+      { error: 'Failed to get user' },
       { status: 500 }
     );
   }

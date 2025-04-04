@@ -60,11 +60,13 @@ export default function ProductsPage() {
       const response = await fetch('/api/admin/products')
       
       if (!response.ok) {
-        throw new Error('Failed to fetch products')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to fetch products')
       }
       
-      const data = await response.json()
-      setProducts(data.products)
+      const products = await response.json()
+      console.log('Fetched products:', products) // Debug log
+      setProducts(Array.isArray(products) ? products : [])
     } catch (error) {
       console.error('Error fetching products:', error)
       toast({
@@ -72,6 +74,7 @@ export default function ProductsPage() {
         description: formatErrorMessage(error),
         variant: 'destructive',
       })
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -136,12 +139,15 @@ export default function ProductsPage() {
     setSearchQuery(e.target.value)
   }
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    product.subcategory.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filteredProducts = products?.filter(product => {
+    const searchLower = searchQuery.toLowerCase()
+    return (
+      product.name.toLowerCase().includes(searchLower) ||
+      product.description.toLowerCase().includes(searchLower) ||
+      (product.category?.name?.toLowerCase() || '').includes(searchLower) ||
+      (product.subcategory?.toLowerCase() || '').includes(searchLower)
+    )
+  }) || []
 
   return (
     <motion.div
@@ -174,43 +180,54 @@ export default function ProductsPage() {
         <div className="flex justify-center items-center h-64">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900" />
         </div>
+      ) : filteredProducts.length === 0 ? (
+        <div className="flex flex-col items-center justify-center h-64 text-center">
+          <p className="text-lg font-medium text-gray-500 mb-2">
+            {searchQuery ? "No products found matching your search" : "No products found"}
+          </p>
+          {searchQuery && (
+            <Button variant="outline" onClick={() => setSearchQuery('')}>
+              Clear Search
+            </Button>
+          )}
+        </div>
       ) : (
         <div className="grid gap-6">
           {filteredProducts.map((product) => (
             <Card key={product.id}>
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
+                              <div>
                     <CardTitle>{product.name}</CardTitle>
                     <CardDescription>{product.description}</CardDescription>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon">
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
+                            </div>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={() => handleEdit(product)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => handleDelete(product.id)}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => handleDelete(product.id)}
                         className="text-red-600"
-                      >
+                                >
                         <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                                  Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Category</p>
-                    <p>{product.category}</p>
+                    <p>{product.category?.name}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Subcategory</p>
@@ -223,8 +240,8 @@ export default function ProductsPage() {
                   <div>
                     <p className="text-sm text-gray-500">Stock</p>
                     <p>{product.stock}</p>
-                  </div>
-                </div>
+              </div>
+            </div>
                 {product.image && (
                   <div className="mt-4">
                     <img
@@ -234,10 +251,10 @@ export default function ProductsPage() {
                     />
                   </div>
                 )}
-              </CardContent>
-            </Card>
+          </CardContent>
+        </Card>
           ))}
-        </div>
+      </div>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -263,5 +280,5 @@ export default function ProductsPage() {
         </DialogContent>
       </Dialog>
     </motion.div>
-  )
-}
+    )
+  }

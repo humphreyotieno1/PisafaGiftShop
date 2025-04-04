@@ -57,9 +57,9 @@ export default function ProductCard({ product }) {
             <span 
               className="inline-flex items-center rounded-full bg-black/50 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm"
               role="text"
-              aria-label={`Product category: ${product.category}`}
+              aria-label={`Product category: ${product.category?.name || 'Uncategorized'}`}
             >
-              {product.category}
+              {product.category?.name || 'Uncategorized'}
             </span>
           </div>
 

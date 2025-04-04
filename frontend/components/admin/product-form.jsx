@@ -124,30 +124,24 @@ export default function ProductForm({ categories, product, onSuccess }) {
         imageUrl: formData.imageUrl,
         imageData: formData.imageData,
         categoryId: formData.categoryId,
-        stock: parseInt(formData.stock),
-        features: formData.features.filter(f => f.trim() !== ''),
-        specs: formData.specs.reduce((acc, spec) => {
-          if (spec.name && spec.value) {
-            acc[spec.name] = spec.value
-          }
-          return acc
-        }, {})
+        subcategory: formData.subcategory,
+        stock: parseInt(formData.stock) || 0
       }
           
-        const response = await fetch(url, {
+      const response = await fetch(url, {
         method,
-          headers: {
-            'Content-Type': 'application/json',
-          },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(productData),
-        })
+      })
 
-        if (!response.ok) {
+      if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || `Failed to ${product?.id ? 'update' : 'create'} product`)
-        }
+      }
 
-        toast({
+      toast({
         title: `Product ${product?.id ? 'Updated' : 'Created'}`,
         description: `Product has been successfully ${product?.id ? 'updated' : 'created'}.`,
       })

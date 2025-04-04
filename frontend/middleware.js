@@ -54,7 +54,39 @@ export async function middleware(request) {
     const payload = await verifyToken(token);
     
     if (!payload) {
-      // Redirect to login if token is invalid
+      // Try to refresh the token if it's expired
+      const refreshToken = request.cookies.get('refreshToken')?.value;
+      if (refreshToken) {
+        try {
+          const refreshResponse = await fetch(new URL('/api/auth/refresh', request.url), {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${refreshToken}`
+            }
+          });
+
+          if (refreshResponse.ok) {
+            const { token: newToken } = await refreshResponse.json();
+            
+            // Create a new response with the refreshed token
+            const response = NextResponse.next();
+            response.cookies.set('token', newToken, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax',
+              path: '/',
+              maxAge: 60 * 60 * 24 * 7, // 1 week
+            });
+            
+            return response;
+          }
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+        }
+      }
+      
+      // If refresh failed or no refresh token, redirect to login
       const url = new URL('/auth/login', request.url);
       url.searchParams.set('callbackUrl', encodeURI(request.url));
       return NextResponse.redirect(url);

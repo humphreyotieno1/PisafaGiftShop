@@ -1,113 +1,28 @@
+export const runtime = 'nodejs'
+
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAuth } from "@/lib/auth"
+import { verifyAuth } from "@/lib/auth-service"
 
 // GET /api/admin/products - Get all products
-export async function GET(request) {
+export async function GET() {
   try {
-    // Verify admin authentication
-    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    const { isAuthenticated, isAdmin } = await verifyAuth()
     
-    if (error || user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized access" },
-        { status: 401 }
-      )
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Get query parameters
-    const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "10")
-    const search = searchParams.get("search") || ""
-    const sort = searchParams.get("sort") || "createdAt"
-    const order = searchParams.get("order") || "desc"
-    const category = searchParams.get("category")
-    const subcategory = searchParams.get("subcategory")
-    const lowStock = searchParams.get("lowStock") === "true"
-
-    // Calculate pagination
-    const skip = (page - 1) * limit
-
-    // Build filter conditions
-    const where = {}
-    
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
-      ]
-    }
-
-    if (category) {
-      where.categoryName = category
-    }
-
-    if (subcategory) {
-      where.subcategoryName = subcategory
-    }
-
-    if (lowStock) {
-      where.stock = {
-        lte: 10,
-      }
-    }
-
-    // Query the database
     const products = await prisma.product.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { [sort]: order },
       include: {
-        category: {
-          select: {
-            name: true,
-            subcategory: true
-          }
-        }
+        category: true
       },
+      orderBy: {
+        createdAt: 'desc'
+      }
     })
-    
-    const totalProducts = await prisma.product.count({ where })
 
-    const response = NextResponse.json({
-      products: products.map(product => ({
-        id: product.id,
-        name: product.name,
-        description: product.description,
-        price: product.price,
-        image: product.image,
-        category: product.category.name,
-        subcategory: product.category.subcategory,
-        features: product.features,
-        specs: product.specs,
-        stock: product.stock,
-        createdAt: product.createdAt,
-        updatedAt: product.updatedAt
-      })),
-      pagination: {
-        total: totalProducts,
-        page,
-        limit,
-        pages: Math.ceil(totalProducts / limit),
-      },
-    })
-    
-    // If token was refreshed, set the new token in a cookie
-    if (tokenRefreshed && newToken) {
-      response.cookies.set({
-        name: 'token',
-        value: newToken,
-        httpOnly: true,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-      })
-    }
-    
-    return response
+    return NextResponse.json(products)
   } catch (error) {
     console.error("Error fetching products:", error)
     return NextResponse.json(
@@ -120,24 +35,43 @@ export async function GET(request) {
 // POST /api/admin/products - Create a new product
 export async function POST(request) {
   try {
-    const { isAdmin } = await verifyAuth()
-    if (!isAdmin) {
+    const { isAuthenticated, isAdmin } = await verifyAuth()
+    
+    if (!isAuthenticated || !isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const data = await request.json()
     
+    // Validate required fields
+    if (!data.name || !data.description || !data.price || !data.categoryId) {
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      )
+    }
+
+    // Get the category to ensure it exists
+    const category = await prisma.category.findUnique({
+      where: { id: data.categoryId }
+    })
+
+    if (!category) {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      )
+    }
+
     const product = await prisma.product.create({
       data: {
         name: data.name,
         description: data.description,
-        price: data.price,
-        stock: data.stock,
-        imageUrl: data.imageUrl,
-        imageData: data.imageData,
-        categoryId: data.categoryId,
-        features: data.features || [],
-        specs: data.specs || {}
+        price: parseFloat(data.price),
+        image: data.imageUrl || data.imageData || null,
+        categoryName: category.name,
+        subcategory: data.subcategory || null,
+        stock: parseInt(data.stock, 10) || 0
       }
     })
 
@@ -145,7 +79,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Error creating product:", error)
     return NextResponse.json(
-      { error: "Failed to create product" },
+      { error: "Failed to create product", details: error.message },
       { status: 500 }
     )
   }

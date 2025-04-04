@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useToast } from "@/components/ui/use-toast"
 
@@ -9,212 +9,99 @@ const AuthContext = createContext()
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
-  const [token, setToken] = useState(null)
   const [isAuthenticated, setIsAuthenticated] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
-  // Initialize user from localStorage on mount
-  useEffect(() => {
-    console.log('[AuthContext] Initializing auth state...');
-    const storedUser = localStorage.getItem('authUser')
-    const storedToken = localStorage.getItem('authToken')
-    
-    console.log('[AuthContext] Found stored auth data:', { 
-      hasUser: !!storedUser, 
-      hasToken: !!storedToken 
-    });
-    
-    // Check if user is logged in from API
-    const checkAuth = async () => {
-      try {
-        const headers = {}
-        if (storedToken) {
-          headers['Authorization'] = `Bearer ${storedToken}`
-        }
-        
-        console.log('[AuthContext] Checking authentication status...');
-        const response = await fetch('/api/auth/me', { 
-          headers,
-          credentials: 'include' // Include cookies in the request
-        })
-        
-        if (response.ok) {
-          const data = await response.json()
-          console.log('[AuthContext] User is authenticated:', { 
-            userId: data.user.id,
-            email: data.user.email 
-          });
-          setUser(data.user)
-          localStorage.setItem('authUser', JSON.stringify(data.user))
-          setToken(data.token)
-          setIsAuthenticated(true)
-        } else if (response.status === 401) {
-          console.log('[AuthContext] User is not authenticated (401)');
-          clearAuthState()
-        } else {
-          console.error('[AuthContext] Unexpected response status:', response.status);
-          clearAuthState()
-        }
-      } catch (error) {
-        console.error('[AuthContext] Error checking authentication:', error)
-        clearAuthState()
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    checkAuth()
-  }, [])
-
-  // Clear auth state
-  const clearAuthState = useCallback(() => {
-    console.log('[AuthContext] Clearing auth state...');
-    setUser(null)
-    localStorage.removeItem('authUser')
-    localStorage.removeItem('authToken')
-    localStorage.removeItem('previousPath')
-    setToken(null)
-    setIsAuthenticated(false)
-  }, [])
-
-  // Store current path in localStorage for navigation persistence
-  useEffect(() => {
-    if (typeof window !== 'undefined' && user?.role === 'ADMIN') {
-      localStorage.setItem('previousPath', window.location.pathname)
-    }
-  }, [user])
-
-  const login = async (email, password) => {
+  const checkAuth = async () => {
     try {
-      console.log("[AuthContext] Attempting login:", { email })
-      setLoading(true)
-      setError(null)
-
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password }),
-        credentials: "include"
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include',
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Login failed")
-      }
-
-      const data = await response.json()
-      
-      // Update auth state
-      setUser(data.user)
-      setToken(data.token)
-      setIsAuthenticated(true)
-      localStorage.setItem("authUser", JSON.stringify(data.user))
-      localStorage.setItem("authToken", data.token)
-      
-      console.log("[AuthContext] Login successful:", data.user)
-      
-      // Redirect based on role
-      if (data.user.role === 'ADMIN') {
-        router.push('/admin/dashboard')
+      if (response.ok) {
+        const data = await response.json()
+        setUser(data)
+        setIsAuthenticated(true)
+        setIsAdmin(data.role === 'ADMIN')
       } else {
-        router.push('/')
+        setUser(null)
+        setIsAuthenticated(false)
+        setIsAdmin(false)
       }
-      
-      return data
     } catch (error) {
-      console.error("[AuthContext] Login failed:", error)
-      setError(error.message)
-      throw error
+      console.error('Auth check failed:', error)
+      setUser(null)
+      setIsAuthenticated(false)
+      setIsAdmin(false)
     } finally {
       setLoading(false)
     }
   }
 
-  const register = async (email, password, name, role = "CUSTOMER") => {
-    try {
-      console.log("[AuthContext] Attempting registration:", { email, role })
-      setLoading(true)
-      setError(null)
+  useEffect(() => {
+    checkAuth()
+  }, [])
 
-      const response = await fetch("/api/auth/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, password, name, role }),
+  const login = async (email, password) => {
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password }),
       })
 
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || "Registration failed")
+      if (response.ok) {
+        const data = await response.json()
+        setUser(data)
+        setIsAuthenticated(true)
+        setIsAdmin(data.role === 'ADMIN')
+        toast({
+          title: "Login Successful",
+          description: "Welcome back!",
+        })
+        return true
+      } else {
+        throw new Error('Login failed')
       }
-
-      const data = await response.json()
-      console.log("[AuthContext] Registration successful:", data.user)
-      return { success: true, user: data.user }
     } catch (error) {
-      console.error("[AuthContext] Registration failed:", error)
-      setError(error.message)
-      throw error
-    } finally {
-      setLoading(false)
+      toast({
+        title: "Login Failed",
+        description: "Invalid email or password",
+        variant: "destructive",
+      })
+      return false
     }
   }
 
   const logout = async () => {
-    console.log('[AuthContext] Attempting logout...');
     try {
       await fetch('/api/auth/logout', {
         method: 'POST',
-      })
-      
-      clearAuthState()
-      router.push('/')
-      
-      toast({
-        title: "Logged out",
-        description: "You have been successfully logged out.",
+        credentials: 'include',
       })
     } catch (error) {
-      console.error('[AuthContext] Logout error:', error)
-      toast({
-        title: "Logout failed",
-        description: "There was an error logging out. Please try again.",
-        variant: "destructive",
-      })
+      console.error('Logout failed:', error)
+    } finally {
+      setUser(null)
+      setIsAuthenticated(false)
+      setIsAdmin(false)
+      router.push('/auth/login')
     }
   }
-
-  // Function to check if user is authorized to access admin routes
-  const verifyAdminAccess = useCallback(() => {
-    if (!user) return false
-    return user.role === 'ADMIN'
-  }, [user])
-
-  // Function to navigate back without logging out
-  const navigateBack = useCallback(() => {
-    const previousPath = localStorage.getItem('previousPath') || '/'
-    router.push(previousPath)
-  }, [router])
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
-        error,
-        token,
         isAuthenticated,
+        isAdmin,
         login,
-        register,
         logout,
-        navigateBack,
-        verifyAdminAccess,
-        isAdmin: user?.role === 'ADMIN',
+        checkAuth,
       }}
     >
       {children}
@@ -222,10 +109,10 @@ export function AuthProvider({ children }) {
   )
 }
 
-export function useAuth() {
+export const useAuth = () => {
   const context = useContext(AuthContext)
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider")
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider')
   }
   return context
 }

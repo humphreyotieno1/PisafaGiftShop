@@ -41,18 +41,35 @@ export async function verifyAuth() {
     const token = cookieStore.get('token')?.value
 
     if (!token) {
+      console.log('No token found in cookies')
       return { isAuthenticated: false, isAdmin: false }
     }
 
     const payload = await verifyToken(token)
     if (!payload) {
+      console.log('Token verification failed')
       return { isAuthenticated: false, isAdmin: false }
     }
 
+    // Check if token is about to expire (within 1 hour)
+    const tokenExp = payload.exp * 1000 // Convert to milliseconds
+    const now = Date.now()
+    const isExpiringSoon = tokenExp - now < 60 * 60 * 1000 // 1 hour
+
+    const isAdmin = payload.role === 'ADMIN'
+    console.log('Auth verification successful:', { 
+      isAuthenticated: true, 
+      isAdmin,
+      userId: payload.id,
+      role: payload.role,
+      isExpiringSoon
+    })
+
     return {
       isAuthenticated: true,
-      isAdmin: payload.role === 'ADMIN',
-      user: payload
+      isAdmin,
+      user: payload,
+      isExpiringSoon
     }
   } catch (error) {
     console.error('Auth verification failed:', error)
@@ -71,9 +88,9 @@ export function setAuthCookies(response, token) {
     response.cookies.set('token', token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
+      sameSite: 'lax',
       path: '/',
-      maxAge: 60 * 60 * 24, // 24 hours
+      maxAge: 60 * 60 * 24 * 7, // 1 week
     })
 
     return response

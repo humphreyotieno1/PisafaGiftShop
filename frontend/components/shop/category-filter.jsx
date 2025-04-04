@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { ChevronDown } from "lucide-react"
 
-export default function CategoryFilter({ categories, selectedCategory, onSelect }) {
+export default function CategoryFilter({ categories = [], selectedCategory, onSelect }) {
   const [open, setOpen] = useState(false)
 
   return (
@@ -25,7 +25,7 @@ export default function CategoryFilter({ categories, selectedCategory, onSelect 
         <DropdownMenuItem onClick={() => onSelect(null)}>
           All Categories
         </DropdownMenuItem>
-        {categories.map((category) => (
+        {categories?.length > 0 && categories.map((category) => (
           <DropdownMenuItem
             key={category.id}
             onClick={() => onSelect(category.id)}

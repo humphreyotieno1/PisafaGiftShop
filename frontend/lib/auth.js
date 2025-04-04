@@ -218,3 +218,34 @@ export async function verifyAuth(request) {
     return { user: null, error: error.message };
   }
 }
+
+/**
+ * Get token from request
+ */
+export async function getToken(request) {
+  // Try to get token from cookies first
+  const cookieToken = request.cookies?.get?.('token')?.value;
+  
+  // Then try to get from Authorization header
+  const headerAuth = request.headers?.get?.('authorization');
+  const headerToken = headerAuth?.startsWith('Bearer ') ? headerAuth.substring(7) : null;
+  
+  // Use whichever token is available
+  const token = cookieToken || headerToken;
+  
+  if (!token) {
+    return null;
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    return {
+      token,
+      userId: decoded.id || decoded.userId,
+      role: decoded.role
+    };
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}

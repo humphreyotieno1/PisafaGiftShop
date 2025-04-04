@@ -14,102 +14,78 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useToast } from "@/components/ui/use-toast"
-
+import { Button } from "@/components/ui/button"
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState({
-    totalProducts: 0,
-    totalCategories: 0,
-    totalUsers: 0,
-    totalRevenue: 0,
-    lowStockProducts: 0,
+  const [dashboardData, setDashboardData] = useState({
+    stats: {
+      totalProducts: 0,
+      totalCategories: 0,
+      totalUsers: 0,
+      totalRevenue: 0,
+      lowStockProducts: 0,
+      completedOrders: 0,
+    },
+    recentActivity: {
+      products: [],
+      users: [],
+    },
+    loading: true,
+    error: null,
   })
-  const [loading, setLoading] = useState(true)
   const { toast } = useToast()
 
   useEffect(() => {
-    const fetchStats = async () => {
+    const fetchDashboardData = async () => {
       try {
-        const [productsRes, categoriesRes, usersRes, ordersRes, lowStockRes] = await Promise.all([
-          fetch('/api/admin/products?limit=1'),
-          fetch('/api/admin/categories?limit=1'),
-          fetch('/api/admin/users?limit=1'),
-          fetch('/api/admin/orders'),
-          fetch('/api/admin/products?stock=low')
-        ])
-
-        if (!productsRes.ok || !categoriesRes.ok || !usersRes.ok || !ordersRes.ok || !lowStockRes.ok) {
-          throw new Error('Failed to fetch dashboard stats')
-        }
-
-        const [products, categories, users, orders, lowStock] = await Promise.all([
-          productsRes.json(),
-          categoriesRes.json(),
-          usersRes.json(),
-          ordersRes.json(),
-          lowStockRes.json()
-        ])
-
-        // Calculate total revenue from completed orders
-        const completedOrders = orders.orders?.filter(order => order.status === 'DELIVERED') || []
-        const totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0)
-
-        setStats({
-          totalProducts: products.pagination?.total || 0,
-          totalCategories: categories.pagination?.total || 0,
-          totalUsers: users.pagination?.total || 0,
-          totalRevenue: totalRevenue,
-          completedOrders: completedOrders.length,
-          lowStockProducts: lowStock.products?.length || 0,
-        })
-      } catch (error) {
-        console.error('Error fetching dashboard stats:', error)
-        toast({
-          title: 'Error',
-          description: 'Failed to load dashboard statistics',
-          variant: 'destructive',
-        })
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStats()
-  }, [toast])
-
-  const [recentProducts, setRecentProducts] = useState([])
-  const [recentUsers, setRecentUsers] = useState([])
-
-  useEffect(() => {
-    const fetchRecentActivity = async () => {
-      try {
-        const [productsRes, usersRes] = await Promise.all([
-          fetch('/api/admin/products?limit=5&sort=createdAt&order=desc'),
-          fetch('/api/admin/users?limit=5&sort=createdAt&order=desc')
-        ])
-
-        if (!productsRes.ok || !usersRes.ok) {
-          throw new Error('Failed to fetch recent activity')
-        }
-
-        const [products, users] = await Promise.all([
-          productsRes.json(),
-          usersRes.json()
-        ])
+        setDashboardData(prev => ({ ...prev, loading: true, error: null }))
         
-        setRecentProducts(products.products || [])
-        setRecentUsers(users.users || [])
+        // Use single dashboard endpoint
+        const response = await fetch('/api/admin/dashboard')
+
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard data')
+        }
+
+        const data = await response.json()
+
+        setDashboardData({
+          stats: {
+            totalProducts: data.stats.totalProducts || 0,
+            totalCategories: data.stats.totalCategories || 0,
+            totalUsers: data.stats.totalUsers || 0,
+            totalRevenue: data.stats.totalRevenue || 0,
+            lowStockProducts: data.stats.lowStockProducts || 0,
+            completedOrders: data.stats.completedOrders || 0,
+          },
+          recentActivity: {
+            products: data.recentOrders || [],
+            users: data.recentUsers || [],
+          },
+          loading: false,
+          error: null,
+        })
       } catch (error) {
-        console.error('Error fetching recent activity:', error)
+        console.error('Error fetching dashboard data:', error)
+        setDashboardData(prev => ({
+          ...prev,
+          loading: false,
+          error: 'Failed to load dashboard data'
+        }))
         toast({
           title: 'Error',
-          description: 'Failed to load recent activity',
+          description: 'Failed to load dashboard data. Please try again.',
           variant: 'destructive',
         })
       }
     }
 
-    fetchRecentActivity()
+    fetchDashboardData()
+    
+    // Set up polling for real-time updates
+    const interval = setInterval(fetchDashboardData, 30000) // Refresh every 30 seconds
+    
+    return () => clearInterval(interval)
   }, [toast])
 
   const formatDate = (dateString) => {
@@ -121,6 +97,23 @@ export default function AdminDashboard() {
       hour: '2-digit',
       minute: '2-digit',
     }).format(date)
+  }
+
+  if (dashboardData.error) {
+    return (
+      <div className="flex h-[50vh] items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-destructive">Error Loading Dashboard</h2>
+          <p className="text-muted-foreground mt-2">{dashboardData.error}</p>
+          <Button 
+            className="mt-4" 
+            onClick={() => window.location.reload()}
+          >
+            Retry
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -142,10 +135,12 @@ export default function AdminDashboard() {
               <Package className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
               ) : (
-                <div className="text-2xl font-bold">{stats.totalProducts.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {dashboardData.stats.totalProducts.toLocaleString()}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -162,10 +157,12 @@ export default function AdminDashboard() {
               <ShoppingBag className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
               ) : (
-                <div className="text-2xl font-bold">{stats.totalCategories.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {dashboardData.stats.totalCategories.toLocaleString()}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -182,10 +179,12 @@ export default function AdminDashboard() {
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
               ) : (
-                <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
+                <div className="text-2xl font-bold">
+                  {dashboardData.stats.totalUsers.toLocaleString()}
+                </div>
               )}
             </CardContent>
           </Card>
@@ -202,10 +201,10 @@ export default function AdminDashboard() {
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
               ) : (
-                <div className="text-2xl font-bold">Ksh {stats.totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold">Ksh {dashboardData.stats.totalRevenue.toLocaleString()}</div>
               )}
             </CardContent>
           </Card>
@@ -227,11 +226,11 @@ export default function AdminDashboard() {
           </CardHeader>
           <CardContent>
             <p className="text-amber-800 dark:text-amber-300">
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="h-5 w-full animate-pulse rounded-md bg-amber-200 dark:bg-amber-800" />
               ) : (
                 <>
-                  <span className="font-medium">{stats.lowStockProducts}</span> products are running low on stock.
+                  <span className="font-medium">{dashboardData.stats.lowStockProducts}</span> products are running low on stock.
                   Consider restocking soon.
                 </>
               )}
@@ -253,17 +252,17 @@ export default function AdminDashboard() {
               <CardDescription>Latest products added to the store</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
                   ))}
                 </div>
-              ) : recentProducts.length === 0 ? (
+              ) : dashboardData.recentActivity.products.length === 0 ? (
                 <p className="text-muted-foreground">No recent products</p>
               ) : (
                 <div className="space-y-4">
-                  {recentProducts.map((product) => (
+                  {dashboardData.recentActivity.products.map((product) => (
                     <div key={product.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{product.name}</p>
@@ -293,17 +292,17 @@ export default function AdminDashboard() {
               <CardDescription>Latest users registered</CardDescription>
             </CardHeader>
             <CardContent>
-              {loading ? (
+              {dashboardData.loading ? (
                 <div className="space-y-4">
                   {[...Array(5)].map((_, i) => (
                     <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
                   ))}
                 </div>
-              ) : recentUsers.length === 0 ? (
+              ) : dashboardData.recentActivity.users.length === 0 ? (
                 <p className="text-muted-foreground">No recent users</p>
               ) : (
                 <div className="space-y-4">
-                  {recentUsers.map((user) => (
+                  {dashboardData.recentActivity.users.map((user) => (
                     <div key={user.id} className="flex items-center justify-between">
                       <div>
                         <p className="font-medium">{user.name}</p>

@@ -30,12 +30,15 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function AdminLayout({ children }) {
-  const { user, isAuthenticated, isAdmin, logout, loading } = useAuth()
+  const { isAuthenticated, isAdmin, loading, checkAuth } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isResizing, setIsResizing] = useState(false)
+  const { toast } = useToast()
   
   // Get current page for breadcrumbs
   const getPageTitle = () => {
@@ -54,16 +57,42 @@ export default function AdminLayout({ children }) {
                                pathname.includes('/users') ||
                                pathname.includes('/orders')
 
-  // Redirect if not authenticated or not admin, but only after auth loading is complete
   useEffect(() => {
-    if (!loading) {
-      if (!isAuthenticated) {
-        router.push("/auth/login?callbackUrl=/admin")
-      } else if (!isAdmin) {
-        router.push("/")
+    const verifySession = async () => {
+      if (!loading) {
+        try {
+          // Check if we have a valid session
+          const response = await fetch('/api/auth/me', {
+            credentials: 'include',
+          })
+
+          if (!response.ok) {
+            // If session is invalid, try to refresh
+            const refreshResponse = await fetch('/api/auth/refresh', {
+              method: 'POST',
+              credentials: 'include',
+            })
+
+            if (!refreshResponse.ok) {
+              throw new Error('Session expired')
+            }
+          }
+
+          // Re-check authentication status
+          await checkAuth()
+        } catch (error) {
+          toast({
+            title: "Session Expired",
+            description: "Please log in again to continue.",
+            variant: "destructive",
+          })
+          router.push("/auth/login")
+        }
       }
     }
-  }, [isAuthenticated, isAdmin, router, loading])
+
+    verifySession()
+  }, [loading])
 
   // Store current path in localStorage for navigation persistence
   useEffect(() => {
@@ -72,14 +101,20 @@ export default function AdminLayout({ children }) {
     }
   }, []);
 
-  // Handle responsive sidebar based on screen size
+  // Debounced window resize handler
   useEffect(() => {
+    let timeoutId;
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+      setIsResizing(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (window.innerWidth < 1024) {
+          setIsSidebarOpen(false);
+        } else {
+          setIsSidebarOpen(true);
+        }
+        setIsResizing(false);
+      }, 150); // 150ms debounce
     };
 
     // Set initial state
@@ -89,34 +124,22 @@ export default function AdminLayout({ children }) {
     window.addEventListener('resize', handleResize);
 
     // Cleanup
-    return () => window.removeEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(timeoutId);
+    };
   }, []);
 
-  // Show loading state while authentication is being verified
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Loading...</h1>
-          <p className="text-muted-foreground">Please wait while we verify your credentials.</p>
-        </div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
 
-  // Only check authentication after loading is complete
-  if (!loading && (!isAuthenticated || !isAdmin)) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Access Denied</h1>
-          <p className="text-muted-foreground">You don't have permission to access this page.</p>
-          <Button className="mt-4" onClick={() => router.push("/auth/login?callbackUrl=/admin")}>
-            Login as Admin
-          </Button>
-        </div>
-      </div>
-    )
+  if (!isAuthenticated || !isAdmin) {
+    return null
   }
 
   const navItems = [
@@ -160,7 +183,11 @@ export default function AdminLayout({ children }) {
           {/* Admin Panel Title with Dropdown Menu */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="flex items-center gap-2 -ml-2">
+              <Button 
+                variant="ghost" 
+                className="flex items-center gap-2 -ml-2"
+                disabled={isResizing}
+              >
                 <Menu className="h-5 w-5" />
                 <span className="font-bold text-xl">Admin Panel</span>
                 <ChevronDown className="h-4 w-4 opacity-50" />
@@ -171,7 +198,11 @@ export default function AdminLayout({ children }) {
               <DropdownMenuSeparator />
               {navItems.map((item) => (
                 <DropdownMenuItem key={item.href} asChild>
-                  <Link href={item.href} className="flex items-center gap-2 w-full cursor-pointer">
+                  <Link 
+                    href={item.href} 
+                    className="flex items-center gap-2 w-full cursor-pointer"
+                    prefetch={false}
+                  >
                     {item.icon}
                     <span>{item.name}</span>
                   </Link>
@@ -179,12 +210,19 @@ export default function AdminLayout({ children }) {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/" className="flex items-center gap-2 w-full cursor-pointer">
+                <Link 
+                  href="/" 
+                  className="flex items-center gap-2 w-full cursor-pointer"
+                  prefetch={false}
+                >
                   <Home className="h-5 w-5" />
                   <span>Back to Site</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-500" onClick={logout}>
+              <DropdownMenuItem 
+                className="text-red-500" 
+                onClick={logout}
+              >
                 <LogOut className="h-5 w-5 mr-2" />
                 <span>Logout</span>
               </DropdownMenuItem>
@@ -203,7 +241,12 @@ export default function AdminLayout({ children }) {
           {mightHaveFilterSidebar && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex items-center gap-2"
+                  disabled={isResizing}
+                >
                   <SlidersHorizontal className="h-4 w-4" />
                   <span className="hidden sm:inline">Filters</span>
                 </Button>
@@ -222,7 +265,12 @@ export default function AdminLayout({ children }) {
           {/* User Info */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="rounded-full">
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="rounded-full"
+                disabled={isResizing}
+              >
                 <div className="h-8 w-8 rounded-full bg-primary text-center leading-8 text-primary-foreground">
                   {user?.name?.charAt(0)}
                 </div>
@@ -237,12 +285,19 @@ export default function AdminLayout({ children }) {
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>
-                <Link href="/" className="flex items-center gap-2 w-full cursor-pointer">
+                <Link 
+                  href="/" 
+                  className="flex items-center gap-2 w-full cursor-pointer"
+                  prefetch={false}
+                >
                   <Home className="h-4 w-4" />
                   <span>Back to Site</span>
                 </Link>
               </DropdownMenuItem>
-              <DropdownMenuItem className="text-red-500" onClick={logout}>
+              <DropdownMenuItem 
+                className="text-red-500" 
+                onClick={logout}
+              >
                 <LogOut className="h-4 w-4 mr-2" />
                 <span>Logout</span>
               </DropdownMenuItem>
