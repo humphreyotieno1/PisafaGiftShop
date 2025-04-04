@@ -12,9 +12,9 @@ import ProductCard from "@/components/product-card"
 import CategorySidebar from "@/components/category-sidebar"
 import Pagination from "@/components/pagination"
 import { generateProducts } from "@/lib/dummy-data"
-import { ProductList } from '@/components/shop/product-list'
-import { SearchBar } from '@/components/shop/search-bar'
-import { CategoryFilter } from '@/components/shop/category-filter'
+import ProductList from "@/components/shop/product-list"
+import SearchBar from "@/components/shop/search-bar"
+import CategoryFilter from "@/components/shop/category-filter"
 
 export default function ShopPage() {
   return (
