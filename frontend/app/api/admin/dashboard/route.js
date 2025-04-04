@@ -1,14 +1,13 @@
+export const runtime = 'nodejs'
+
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAuth } from "@/lib/auth"
-
-export const dynamic = 'force-dynamic'
-export const runtime = 'edge'
+import { verifyToken } from "@/lib/auth-service"
 
 // GET /api/admin/dashboard - Get dashboard statistics
 export async function GET() {
   try {
-    const { isAdmin } = await verifyAuth()
+    const { isAdmin } = await verifyToken()
     if (!isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
