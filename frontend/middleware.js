@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { authService } from './lib/auth-service';
+import { verifyToken } from './lib/auth-service';
 
 // Paths that require authentication
 const protectedPaths = [
@@ -51,9 +51,9 @@ export async function middleware(request) {
     }
     
     // Verify the token
-    const user = await authService.getUserFromToken(token);
+    const payload = await verifyToken(token);
     
-    if (!user) {
+    if (!payload) {
       // Redirect to login if token is invalid
       const url = new URL('/auth/login', request.url);
       url.searchParams.set('callbackUrl', encodeURI(request.url));
@@ -63,7 +63,7 @@ export async function middleware(request) {
     // Check if the path is admin only
     const isAdminOnlyPath = adminOnlyPaths.some(path => pathname.startsWith(path));
     
-    if (isAdminOnlyPath && user.role !== 'ADMIN') {
+    if (isAdminOnlyPath && payload.role !== 'ADMIN') {
       // Redirect to home if user is not an admin
       return NextResponse.redirect(new URL('/', request.url));
     }
@@ -71,8 +71,8 @@ export async function middleware(request) {
     // Add user info to request headers for API routes
     if (pathname.startsWith('/api/')) {
       const requestHeaders = new Headers(request.headers);
-      requestHeaders.set('x-user-id', user.id);
-      requestHeaders.set('x-user-role', user.role);
+      requestHeaders.set('x-user-id', payload.id);
+      requestHeaders.set('x-user-role', payload.role);
 
       return NextResponse.next({
         request: {
@@ -90,11 +90,12 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
+     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

@@ -9,6 +9,9 @@ const AuthContext = createContext()
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [token, setToken] = useState(null)
+  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
@@ -45,6 +48,8 @@ export function AuthProvider({ children }) {
           });
           setUser(data.user)
           localStorage.setItem('authUser', JSON.stringify(data.user))
+          setToken(data.token)
+          setIsAuthenticated(true)
         } else if (response.status === 401) {
           console.log('[AuthContext] User is not authenticated (401)');
           clearAuthState()
@@ -70,6 +75,8 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('authUser')
     localStorage.removeItem('authToken')
     localStorage.removeItem('previousPath')
+    setToken(null)
+    setIsAuthenticated(false)
   }, [])
 
   // Store current path in localStorage for navigation persistence
@@ -79,106 +86,82 @@ export function AuthProvider({ children }) {
     }
   }, [user])
 
-  const login = async (email, password, role) => {
-    console.log('[AuthContext] Attempting login:', { email, role });
+  const login = async (email, password) => {
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
+      console.log("[AuthContext] Attempting login:", { email })
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/auth/login", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email, password }),
+        credentials: "include"
       })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Login failed")
+      }
 
       const data = await response.json()
-
-      if (response.ok) {
-        console.log('[AuthContext] Login successful:', { 
-          userId: data.user.id,
-          email: data.user.email 
-        });
-        setUser(data.user)
-        localStorage.setItem('authUser', JSON.stringify(data.user))
-        
-        if (data.token) {
-          localStorage.setItem('authToken', data.token)
-        }
-        
-        toast({
-          title: "Login successful",
-          description: "You have been successfully logged in.",
-        })
-        
-        return { success: true, user: data.user }
+      
+      // Update auth state
+      setUser(data.user)
+      setToken(data.token)
+      setIsAuthenticated(true)
+      localStorage.setItem("authUser", JSON.stringify(data.user))
+      localStorage.setItem("authToken", data.token)
+      
+      console.log("[AuthContext] Login successful:", data.user)
+      
+      // Redirect based on role
+      if (data.user.role === 'ADMIN') {
+        router.push('/admin/dashboard')
       } else {
-        console.log('[AuthContext] Login failed:', data.error);
-        toast({
-          title: "Login failed",
-          description: data.error || "Invalid email or password",
-          variant: "destructive",
-        })
-        return { success: false, error: data.error }
+        router.push('/')
       }
+      
+      return data
     } catch (error) {
-      console.error('[AuthContext] Login error:', error)
-      toast({
-        title: "Login failed",
-        description: "An error occurred during login",
-        variant: "destructive",
-      })
-      return { success: false, error: error.message }
+      console.error("[AuthContext] Login failed:", error)
+      setError(error.message)
+      throw error
+    } finally {
+      setLoading(false)
     }
   }
 
-  const register = async (email, password, name, role = 'CUSTOMER') => {
-    console.log('[AuthContext] Attempting registration:', { email, role });
+  const register = async (email, password, name, role = "CUSTOMER") => {
     try {
-      const response = await fetch('/api/auth/register', {
-        method: 'POST',
+      console.log("[AuthContext] Attempting registration:", { email, role })
+      setLoading(true)
+      setError(null)
+
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ email, password, name, role }),
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        console.log('[AuthContext] Registration successful:', { 
-          userId: data.user.id,
-          email: data.user.email 
-        });
-        if (data.token) {
-          localStorage.setItem('authToken', data.token)
-        }
-        if (data.user) {
-          localStorage.setItem('authUser', JSON.stringify(data.user))
-          setUser(data.user)
-        }
-        
-        toast({
-          title: "Registration successful",
-          description: "Your account has been created. Please log in to continue.",
-        })
-        
-        return { success: true, user: data.user }
-      } else {
-        console.log('[AuthContext] Registration failed:', data.error);
-        toast({
-          title: "Registration failed",
-          description: data.error || "Something went wrong. Please try again.",
-          variant: "destructive",
-        })
-        return { success: false, error: data.error }
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || "Registration failed")
       }
+
+      const data = await response.json()
+      console.log("[AuthContext] Registration successful:", data.user)
+      return { success: true, user: data.user }
     } catch (error) {
-      console.error('[AuthContext] Registration error:', error)
-      toast({
-        title: "Registration failed",
-        description: "An error occurred during registration",
-        variant: "destructive",
-      })
-      return { success: false, error: error.message }
+      console.error("[AuthContext] Registration failed:", error)
+      setError(error.message)
+      throw error
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -223,12 +206,14 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        error,
+        token,
+        isAuthenticated,
         login,
         register,
         logout,
         navigateBack,
         verifyAdminAccess,
-        isAuthenticated: !!user,
         isAdmin: user?.role === 'ADMIN',
       }}
     >

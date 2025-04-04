@@ -89,7 +89,7 @@ export default function ProductForm({ categories, product, onSuccess }) {
           imageUrl: null // Clear the URL if we're using base64 data
         }))
         setPreviewImage(base64Data)
-        toast({
+      toast({
           title: "Success",
           description: "Image uploaded successfully!",
         })
@@ -133,21 +133,21 @@ export default function ProductForm({ categories, product, onSuccess }) {
           return acc
         }, {})
       }
-
-      const response = await fetch(url, {
+          
+        const response = await fetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
+          headers: {
+            'Content-Type': 'application/json',
+          },
         body: JSON.stringify(productData),
-      })
+        })
 
-      if (!response.ok) {
+        if (!response.ok) {
         const errorData = await response.json()
         throw new Error(errorData.error || `Failed to ${product?.id ? 'update' : 'create'} product`)
-      }
-      
-      toast({
+        }
+
+        toast({
         title: `Product ${product?.id ? 'Updated' : 'Created'}`,
         description: `Product has been successfully ${product?.id ? 'updated' : 'created'}.`,
       })
@@ -262,39 +262,39 @@ export default function ProductForm({ categories, product, onSuccess }) {
             </div>
             <div>
               <Label htmlFor="category">Category</Label>
-              <Select
+                <Select 
                 value={formData.categoryId}
                 onValueChange={handleCategoryChange}
                 required
-              >
+                >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select a category" />
-                </SelectTrigger>
-                <SelectContent>
+                    <SelectValue placeholder="Select a category" />
+                  </SelectTrigger>
+                  <SelectContent>
                   {categories?.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      <SelectItem key={category.id} value={category.id}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
             </div>
           </div>
 
           <div>
-            <Label htmlFor="stock">Stock Quantity</Label>
-            <Input
-              id="stock"
-              type="number"
+              <Label htmlFor="stock">Stock Quantity</Label>
+              <Input
+                id="stock"
+                type="number"
               value={formData.stock}
               onChange={handleInputChange}
               required
             />
-          </div>
+            </div>
 
-          <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-2">
             <Checkbox
-              id="inStock"
+                id="inStock"
               checked={formData.inStock}
               onCheckedChange={(checked) => 
                 setFormData(prev => ({ ...prev, inStock: checked }))
@@ -324,7 +324,7 @@ export default function ProductForm({ categories, product, onSuccess }) {
                 <div className="relative">
                   <img
                     src={previewImage}
-                    alt="Product preview"
+                    alt="Product preview" 
                     className="w-full h-48 object-contain"
                   />
                   <Button
@@ -364,71 +364,71 @@ export default function ProductForm({ categories, product, onSuccess }) {
 
           <div>
             <Label>Product Features</Label>
-            <div className="space-y-2">
+                <div className="space-y-2">
               {formData.features.map((feature, index) => (
                 <div key={index} className="flex gap-2">
-                  <Input
-                    value={feature}
-                    onChange={(e) => handleFeatureChange(index, e.target.value)}
-                    placeholder={`Feature ${index + 1}`}
-                  />
+                      <Input
+                        value={feature}
+                        onChange={(e) => handleFeatureChange(index, e.target.value)}
+                        placeholder={`Feature ${index + 1}`}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                    onClick={() => removeFeature(index)}
+                      >
+                        <Minus className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeFeature(index)}
-                  >
-                    <Minus className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
+                    variant="outline"
                 className="w-full"
                 onClick={addFeature}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Feature
-              </Button>
-            </div>
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Feature
+                  </Button>
+                </div>
           </div>
 
           <div>
             <Label>Product Specifications</Label>
-            <div className="space-y-2">
+                <div className="space-y-2">
               {formData.specs.map((spec, index) => (
                 <div key={index} className="flex gap-2">
-                  <Input
+                      <Input
                     value={spec.name}
                     onChange={(e) => handleSpecChange(index, 'name', e.target.value)}
-                    placeholder="Spec name"
-                  />
-                  <Input
-                    value={spec.value}
+                        placeholder="Spec name"
+                      />
+                      <Input
+                        value={spec.value}
                     onChange={(e) => handleSpecChange(index, 'value', e.target.value)}
-                    placeholder="Spec value"
-                  />
+                        placeholder="Spec value"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                    onClick={() => removeSpec(index)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
                   <Button
                     type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => removeSpec(index)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
+                    variant="outline"
                 className="w-full"
                 onClick={addSpec}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Specification
-              </Button>
-            </div>
+                  >
+                    <Plus className="mr-2 h-4 w-4" />
+                    Add Specification
+                  </Button>
+                </div>
           </div>
         </div>
       </div>

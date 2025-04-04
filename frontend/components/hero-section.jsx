@@ -141,7 +141,7 @@ export default function HeroSection() {
                 <Button
                   asChild
                   size="lg"
-                  className="group relative overflow-hidden bg-white px-8 text-black transition-all duration-300 hover:bg-white/90 hover:shadow-lg hover:shadow-white/20"
+                  className="group relative overflow-hidden bg-black px-8 text-white transition-all duration-300 hover:bg-black/90 hover:shadow-lg hover:shadow-black/20"
                 >
                   <Link href={carouselImages[currentIndex].buttonLink} className="flex items-center">
                     {carouselImages[currentIndex].buttonText}

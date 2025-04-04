@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { authService } from '@/lib/auth-service';
+import { hashPassword, createToken, setAuthCookies } from '@/lib/auth-service';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,13 +29,13 @@ export async function POST(request) {
       console.log('[Register] User already exists:', email);
       return NextResponse.json(
         { error: 'User with this email already exists' },
-        { status: 409 }
+        { status: 400 }
       );
     }
 
     // Hash the password
     console.log('[Register] Hashing password...');
-    const hashedPassword = await authService.hashPassword(password);
+    const hashedPassword = await hashPassword(password);
 
     // Create the user
     console.log('[Register] Creating user...');
@@ -44,35 +44,40 @@ export async function POST(request) {
         email,
         password: hashedPassword,
         name,
-        role: role === 'ADMIN' ? 'ADMIN' : 'CUSTOMER',
+        role,
       },
     });
     console.log('[Register] User created successfully:', { userId: user.id });
 
-    // Create a session
-    console.log('[Register] Creating session...');
-    const session = await authService.createSession(user.id);
-    
-    if (!session || !session.token) {
-      console.error('[Register] Failed to create session');
-      throw new Error('Failed to create session');
-    }
-    console.log('[Register] Session created successfully');
-
-    // Create response with user data
-    const { password: _, ...userWithoutPassword } = user;
-    const response = NextResponse.json({
-      user: userWithoutPassword,
-      token: session.token,
-      message: 'Registration successful',
+    // Create token
+    console.log('[Register] Creating token...');
+    const token = await createToken({
+      id: user.id,
+      email: user.email,
+      role: user.role
     });
+    console.log('[Register] Token created successfully');
+
+    // Remove password from user object
+    const { password: _, ...userWithoutPassword } = user;
+
+    // Create response with user data and token
+    const response = new NextResponse(
+      JSON.stringify({
+        user: userWithoutPassword,
+        token
+      }),
+      {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     // Set auth cookies
     console.log('[Register] Setting auth cookies...');
-    authService.setAuthCookies(session.token);
-
-    console.log('[Register] Registration completed successfully');
-    return response;
+    return setAuthCookies(response, token);
   } catch (error) {
     console.error('[Register] Registration error:', {
       message: error.message,
@@ -80,19 +85,9 @@ export async function POST(request) {
       name: error.name
     });
     
-    let errorMessage = 'An error occurred during registration';
-    let statusCode = 500;
-
-    if (error.message.includes('Failed to create session')) {
-      errorMessage = 'Failed to create login session';
-    } else if (error.message.includes('User not found')) {
-      errorMessage = 'User not found';
-      statusCode = 404;
-    }
-
     return NextResponse.json(
-      { error: errorMessage },
-      { status: statusCode }
+      { error: 'An error occurred during registration' },
+      { status: 500 }
     );
   }
 }

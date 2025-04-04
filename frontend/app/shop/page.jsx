@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Filter } from "lucide-react"
@@ -12,8 +12,19 @@ import ProductCard from "@/components/product-card"
 import CategorySidebar from "@/components/category-sidebar"
 import Pagination from "@/components/pagination"
 import { generateProducts } from "@/lib/dummy-data"
+import { ProductList } from '@/components/shop/product-list'
+import { SearchBar } from '@/components/shop/search-bar'
+import { CategoryFilter } from '@/components/shop/category-filter'
 
 export default function ShopPage() {
+  return (
+    <Suspense fallback={<div>Loading shop...</div>}>
+      <ShopContent />
+    </Suspense>
+  )
+}
+
+function ShopContent() {
   const searchParams = useSearchParams()
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
@@ -98,106 +109,14 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pt-32 pb-8">
-      <div className="flex flex-col gap-8 lg:flex-row">
-        {/* Sidebar - Hidden on mobile */}
-        <aside className="hidden lg:block lg:w-72 shrink-0">
-          <div className="sticky top-32">
-            <CategorySidebar />
-          </div>
-        </aside>
-
-        {/* Main Content */}
-        <div className="flex-1">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold">Shop</h1>
-            <p className="text-muted-foreground">Browse our exquisite collection of jewelry</p>
-          </div>
-
-          {/* Filters and Search */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <form onSubmit={handleSearch} className="relative w-full md:w-auto">
-              <Input
-                type="search"
-                placeholder="Search products..."
-                className="w-full md:w-[300px]"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-              <Button type="submit" variant="ghost" size="icon" className="absolute right-0 top-0">
-                <span className="sr-only">Search</span>
-              </Button>
-            </form>
-
-            <div className="flex w-full items-center gap-4 md:w-auto">
-              <Sheet>
-                <SheetTrigger asChild className="lg:hidden">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Filter className="h-4 w-4" />
-                    Filters
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="left" className="w-[300px] p-0">
-                  <CategorySidebar />
-                </SheetContent>
-              </Sheet>
-
-              <div className="flex flex-1 items-center justify-end gap-2 md:flex-none">
-                <span className="text-sm text-muted-foreground">Sort by:</span>
-                <Select value={sortBy} onValueChange={setSortBy}>
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="Sort by" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="featured">Featured</SelectItem>
-                    <SelectItem value="price-low">Price: Low to High</SelectItem>
-                    <SelectItem value="price-high">Price: High to Low</SelectItem>
-                    <SelectItem value="name-asc">Name: A to Z</SelectItem>
-                    <SelectItem value="name-desc">Name: Z to A</SelectItem>
-                    <SelectItem value="rating">Highest Rated</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-
-          {/* Products Grid */}
-          {loading ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
-              {[...Array(6)].map((_, index) => (
-                <div key={index} className="h-[300px] animate-pulse rounded-lg bg-muted" />
-              ))}
-            </div>
-          ) : filteredProducts.length === 0 ? (
-            <div className="my-12 text-center">
-              <h3 className="text-xl font-semibold">No products found</h3>
-              <p className="text-muted-foreground">Try adjusting your search or filter criteria</p>
-            </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3">
-                {currentProducts.map((product, index) => (
-                  <motion.div
-                    key={product.id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: index * 0.05 }}
-                  >
-                    <ProductCard product={product} />
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="mt-8 flex justify-center">
-                  <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-                </div>
-              )}
-            </>
-          )}
-        </div>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex flex-col md:flex-row gap-4 mb-8">
+        <SearchBar />
+        <CategoryFilter />
       </div>
+      <Suspense fallback={<div>Loading products...</div>}>
+        <ProductList />
+      </Suspense>
     </div>
   )
 }

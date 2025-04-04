@@ -62,9 +62,8 @@ function LoginForm() {
   const onSubmit = async (data) => {
     setIsLoading(true)
     try {
-      const result = await login(data.email, data.password, data.role)
-
-      if (result.success) {
+      const result = await login(data.email, data.password)
+      if (result) {
         toast({
           title: "Login successful",
           description: "Welcome back!",
@@ -75,16 +74,10 @@ function LoginForm() {
         
         // Redirect based on role
         if (data.role === "ADMIN") {
-          router.push("/admin")
+          router.push("/admin/")
         } else {
           router.push("/")
         }
-      } else {
-        toast({
-          title: "Login failed",
-          description: result.error || "Invalid email or password",
-          variant: "destructive",
-        })
       }
     } catch (error) {
       toast({
