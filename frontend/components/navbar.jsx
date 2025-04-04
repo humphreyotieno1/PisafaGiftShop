@@ -185,7 +185,7 @@ export default function Navbar() {
                         <div className="flex items-center justify-between mb-4">
                           <Link href="/">
                             <Image
-                              src="/pisafalogo.png"
+                              src="/shoplogo.png"
                               alt="Pisafa Gifts Shop Logo"
                               width={40}
                               height={40}
@@ -310,10 +310,10 @@ export default function Navbar() {
             {/* Logo */}
             <Link href="/" className="flex items-center">
               <Image
-                src="/pisafalogo.png"
+                src="/shoplogo.png"
                 alt="Pisafa Gifts Shop Logo"
-                width={40}
-                height={40}
+                width={100}
+                height={100}
                 className="h-10 w-auto"
                 priority
               />
