@@ -29,28 +29,34 @@ export async function verifyToken(token) {
     const { payload } = await jwtVerify(token, JWT_SECRET)
     return payload
   } catch (error) {
+    console.error('Token verification failed:', error)
     return null
   }
 }
 
 // Verify authentication from request
 export async function verifyAuth() {
-  const cookieStore = cookies()
-  const token = cookieStore.get('token')?.value
+  try {
+    const cookieStore = cookies()
+    const token = cookieStore.get('token')?.value
 
-  if (!token) {
-    return { isAuthenticated: false }
-  }
+    if (!token) {
+      return { isAuthenticated: false, isAdmin: false }
+    }
 
-  const payload = await verifyToken(token)
-  if (!payload) {
-    return { isAuthenticated: false }
-  }
+    const payload = await verifyToken(token)
+    if (!payload) {
+      return { isAuthenticated: false, isAdmin: false }
+    }
 
-  return {
-    isAuthenticated: true,
-    isAdmin: payload.role === 'ADMIN',
-    user: payload
+    return {
+      isAuthenticated: true,
+      isAdmin: payload.role === 'ADMIN',
+      user: payload
+    }
+  } catch (error) {
+    console.error('Auth verification failed:', error)
+    return { isAuthenticated: false, isAdmin: false }
   }
 }
 

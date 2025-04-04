@@ -2,13 +2,14 @@ export const runtime = 'nodejs'
 
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyToken } from "@/lib/auth-service"
+import { verifyAuth } from "@/lib/auth-service"
 
 // GET /api/admin/dashboard - Get dashboard statistics
 export async function GET() {
   try {
-    const { isAdmin } = await verifyToken()
-    if (!isAdmin) {
+    const { isAuthenticated, isAdmin } = await verifyAuth()
+    
+    if (!isAuthenticated || !isAdmin) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 

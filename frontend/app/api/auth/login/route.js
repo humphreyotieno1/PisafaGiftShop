@@ -43,6 +43,7 @@ export async function POST(request) {
       console.log('[Login API] User found:', { 
         userId: user.id,
         email: user.email,
+        role: user.role
       });
 
       console.log('[Login API] Verifying password...');
@@ -55,11 +56,12 @@ export async function POST(request) {
         );
       }
 
-      // Create token
+      // Create token with role information
       const token = await createToken({
         id: user.id,
         email: user.email,
-        role: user.role
+        role: user.role,
+        name: user.name
       });
 
       // Remove password from user object
@@ -68,6 +70,7 @@ export async function POST(request) {
       console.log('[Login API] Login successful:', { 
         userId: user.id,
         email: user.email,
+        role: user.role
       });
 
       // Create response with user data and token
