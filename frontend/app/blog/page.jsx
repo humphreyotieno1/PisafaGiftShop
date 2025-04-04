@@ -10,63 +10,63 @@ import { Button } from "@/components/ui/button"
 const blogPosts = [
   {
     id: 1,
-    title: "Essential Car Maintenance Tips for Every Season",
+    title: "How to Choose the Perfect Engagement Ring",
     excerpt:
-      "Learn how to keep your vehicle in top condition throughout the year with these maintenance tips for every season.",
-    image: "/placeholder.svg",
+      "Discover the essential factors to consider when selecting an engagement ring that perfectly matches your partner's style and personality.",
+    image: "/blog/engagement-ring.jpg",
     date: "2025-02-15",
-    author: "John Smith",
-    category: "Maintenance",
+    author: "Sarah Johnson",
+    category: "Guides",
   },
   {
     id: 2,
-    title: "Understanding Your Car's Brake System",
+    title: "Understanding Different Types of Gold Jewelry",
     excerpt:
-      "A comprehensive guide to understanding how your car's brake system works and signs it needs maintenance.",
-    image: "/placeholder.svg",
+      "Learn about the various types of gold used in jewelry making, from 24K to 14K, and how to choose the right one for your needs.",
+    image: "/blog/gold-types.jpg",
     date: "2025-02-10",
-    author: "Sarah Johnson",
+    author: "Michael Chen",
     category: "Education",
   },
   {
     id: 3,
-    title: "The Future of Electric Vehicle Parts",
+    title: "Caring for Your Precious Jewelry",
     excerpt:
-      "Explore the latest trends and innovations in electric vehicle parts and what they mean for car owners.",
-    image: "/placeholder.svg",
+      "Essential tips and tricks for maintaining the beauty and longevity of your jewelry collection, from cleaning to proper storage.",
+    image: "/blog/jewelry-care.jpg",
     date: "2025-02-05",
-    author: "Mike Wilson",
-    category: "Technology",
+    author: "Emily Davis",
+    category: "Maintenance",
   },
   {
     id: 4,
-    title: "How to Choose the Right Tires for Your Vehicle",
+    title: "The History of Gemstones in Jewelry",
     excerpt:
-      "A detailed guide to selecting the perfect tires based on your vehicle type, driving conditions, and needs.",
-    image: "/placeholder.svg",
+      "Explore the fascinating history of gemstones and their significance in jewelry making throughout different cultures and eras.",
+    image: "/blog/gemstones.jpg",
     date: "2025-01-30",
-    author: "Emily Brown",
-    category: "Guides",
+    author: "David Wilson",
+    category: "History",
   },
   {
     id: 5,
-    title: "Common Engine Problems and Their Solutions",
+    title: "Trending Jewelry Styles for 2025",
     excerpt:
-      "Learn about frequent engine issues, their symptoms, and how to address them before they become major problems.",
-    image: "/placeholder.svg",
+      "Stay ahead of the fashion curve with our guide to the most popular jewelry trends and styles for the upcoming year.",
+    image: "/blog/trends.jpg",
     date: "2025-01-25",
-    author: "David Lee",
-    category: "Troubleshooting",
+    author: "Lisa Thompson",
+    category: "Fashion",
   },
   {
     id: 6,
-    title: "The Impact of Regular Oil Changes",
+    title: "The Art of Jewelry Making",
     excerpt:
-      "Discover why regular oil changes are crucial for your engine's longevity and overall vehicle performance.",
-    image: "/placeholder.svg",
+      "A behind-the-scenes look at the intricate process of creating beautiful jewelry pieces, from design to final product.",
+    image: "/blog/jewelry-making.jpg",
     date: "2025-01-20",
-    author: "Lisa Chen",
-    category: "Maintenance",
+    author: "James Rodriguez",
+    category: "Craftsmanship",
   },
 ]
 
@@ -76,7 +76,7 @@ export default function BlogPage() {
       <div className="mb-12 text-center">
         <h1 className="text-3xl font-bold md:text-4xl">Our Blog</h1>
         <p className="mt-4 text-muted-foreground">
-          Stay updated with the latest automotive news, maintenance tips, and industry insights
+          Discover the latest trends, expert tips, and fascinating stories from the world of jewelry
         </p>
       </div>
 

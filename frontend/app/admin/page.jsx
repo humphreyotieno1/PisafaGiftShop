@@ -50,26 +50,21 @@ export default function AdminDashboard() {
           lowStockRes.json()
         ])
 
-        // Validate the response data
-        if (!orders?.orders || !Array.isArray(orders.orders)) {
-          throw new Error('Invalid orders data received')
-        }
-
         // Calculate total revenue from completed orders
-        const completedOrders = orders.orders.filter(order => order.status === 'DELIVERED')
+        const completedOrders = orders.orders?.filter(order => order.status === 'DELIVERED') || []
         const totalRevenue = completedOrders.reduce((sum, order) => sum + order.total, 0)
 
         setStats({
-          totalProducts: products.pagination.total,
-          totalCategories: categories.pagination.total,
-          totalUsers: users.pagination.total,
+          totalProducts: products.pagination?.total || 0,
+          totalCategories: categories.pagination?.total || 0,
+          totalUsers: users.pagination?.total || 0,
           totalRevenue: totalRevenue,
           completedOrders: completedOrders.length,
-          lowStockProducts: lowStock.products.length,
+          lowStockProducts: lowStock.products?.length || 0,
         })
       } catch (error) {
         console.error('Error fetching dashboard stats:', error)
-        hotToast({
+        toast({
           title: 'Error',
           description: 'Failed to load dashboard statistics',
           variant: 'destructive',
@@ -80,7 +75,7 @@ export default function AdminDashboard() {
     }
 
     fetchStats()
-  }, [])
+  }, [toast])
 
   const [recentProducts, setRecentProducts] = useState([])
   const [recentUsers, setRecentUsers] = useState([])
@@ -101,14 +96,9 @@ export default function AdminDashboard() {
           productsRes.json(),
           usersRes.json()
         ])
-
-        // Ensure we have valid arrays before setting state
-        if (!Array.isArray(products.products) || !Array.isArray(users.users)) {
-          throw new Error('Invalid data received from API')
-        }
         
-        setRecentProducts(products.products)
-        setRecentUsers(users.users)
+        setRecentProducts(products.products || [])
+        setRecentUsers(users.users || [])
       } catch (error) {
         console.error('Error fetching recent activity:', error)
         toast({
@@ -120,7 +110,7 @@ export default function AdminDashboard() {
     }
 
     fetchRecentActivity()
-  }, [])
+  }, [toast])
 
   const formatDate = (dateString) => {
     const date = new Date(dateString)
@@ -250,131 +240,88 @@ export default function AdminDashboard() {
         </Card>
       </motion.div>
 
-      {/* Recent Activity Tabs */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.6 }}
-      >
-        <Tabs defaultValue="products">
-          <div className="flex items-center justify-between">
-            <TabsList>
-              <TabsTrigger value="products" className="flex items-center gap-2">
-                <Package className="h-4 w-4" />
-                Recent Products
-              </TabsTrigger>
-              <TabsTrigger value="users" className="flex items-center gap-2">
-                <Users className="h-4 w-4" />
-                Recent Users
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="products" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recently Added Products</CardTitle>
-                <CardDescription>You have added {recentProducts.length} products recently</CardDescription>
-              </CardHeader>
-              <CardContent>
+      {/* Recent Activity */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.6 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Products</CardTitle>
+              <CardDescription>Latest products added to the store</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
                 <div className="space-y-4">
-                  {loading ? (
-                    <div className="space-y-2">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-16 animate-pulse rounded-md bg-muted" />
-                      ))}
-                    </div>
-                  ) : (
-                    recentProducts.map((product) => {
-                      // Ensure product is valid
-                      if (!product || typeof product !== 'object') return null;
-                      
-                      return (
-                        <div key={product.id} className="flex items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-1">
-                            <p className="font-medium">{product.name || 'Unnamed Product'}</p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              {product.category && typeof product.category === 'object' && product.category.name ? (
-                                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
-                                  {product.category.name}
-                                </span>
-                              ) : (
-                                <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                  Uncategorized
-                                </span>
-                              )}
-                              <span>•</span>
-                              <span>Ksh {(product.price || 0).toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {product.createdAt ? formatDate(product.createdAt) : 'Unknown date'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="users" className="mt-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>Recently Registered Users</CardTitle>
-                <CardDescription>You have {recentUsers.length} new users recently</CardDescription>
-              </CardHeader>
-              <CardContent>
+              ) : recentProducts.length === 0 ? (
+                <p className="text-muted-foreground">No recent products</p>
+              ) : (
                 <div className="space-y-4">
-                  {loading ? (
-                    <div className="space-y-2">
-                      {[...Array(5)].map((_, i) => (
-                        <div key={i} className="h-16 animate-pulse rounded-md bg-muted" />
-                      ))}
+                  {recentProducts.map((product) => (
+                    <div key={product.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Added {formatDate(product.createdAt)}
+                        </p>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Ksh {product.price.toLocaleString()}
+                      </div>
                     </div>
-                  ) : (
-                    recentUsers.map((user) => {
-                      // Ensure user is valid
-                      if (!user || typeof user !== 'object') return null;
-                      
-                      return (
-                        <div key={user.id} className="flex items-center justify-between rounded-lg border p-3">
-                          <div className="space-y-1">
-                            <p className="font-medium">{user.name || 'Unknown User'}</p>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <span>{user.email || 'No email'}</span>
-                              <span>•</span>
-                              <span
-                                className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                  user.role === "ADMIN" 
-                                    ? "bg-primary/10 text-primary" 
-                                    : "bg-green-100 text-green-800 dark:bg-green-800 dark:text-green-100"
-                                }`}
-                              >
-                                {user.role || 'USER'}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm text-muted-foreground">
-                              {user.createdAt ? formatDate(user.createdAt) : 'Unknown date'}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
+                  ))}
                 </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-        </Tabs>
-      </motion.div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.7 }}
+        >
+          <Card>
+            <CardHeader>
+              <CardTitle>Recent Users</CardTitle>
+              <CardDescription>Latest users registered</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="space-y-4">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
+                  ))}
+                </div>
+              ) : recentUsers.length === 0 ? (
+                <p className="text-muted-foreground">No recent users</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentUsers.map((user) => (
+                    <div key={user.id} className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">{user.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Joined {formatDate(user.createdAt)}
+                        </p>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {user.role}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
     </div>
   )
 }

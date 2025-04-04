@@ -12,6 +12,7 @@ import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import { generateProducts } from "@/lib/dummy-data"
 import ProductCard from "@/components/product-card"
+import { featuredProducts } from "@/components/featured-products"
 
 export default function ProductPage() {
   const params = useParams()
@@ -23,17 +24,28 @@ export default function ProductPage() {
   const [relatedProducts, setRelatedProducts] = useState([])
 
   useEffect(() => {
-    // In a real app, this would be an API call
-    const productId = Number.parseInt(params.id)
-    const allProducts = generateProducts(100)
-    const foundProduct = allProducts.find((p) => p.id === productId)
-
-    if (foundProduct) {
-      setProduct(foundProduct)
-
+    // First check if it's a featured product
+    const featuredProduct = featuredProducts.find(p => p.id === params.id)
+    
+    if (featuredProduct) {
+      setProduct(featuredProduct)
       // Get related products from the same category
-      const related = allProducts.filter((p) => p.category === foundProduct.category && p.id !== productId).slice(0, 4)
+      const related = featuredProducts.filter(p => p.category === featuredProduct.category && p.id !== params.id).slice(0, 4)
       setRelatedProducts(related)
+    } else {
+      // If not a featured product, check regular products
+      const productId = Number.parseInt(params.id)
+      if (!isNaN(productId)) { // Only proceed if the ID is a valid number
+        const allProducts = generateProducts(100)
+        const foundProduct = allProducts.find((p) => p.id === productId)
+
+        if (foundProduct) {
+          setProduct(foundProduct)
+          // Get related products from the same category
+          const related = allProducts.filter((p) => p.category === foundProduct.category && p.id !== productId).slice(0, 4)
+          setRelatedProducts(related)
+        }
+      }
     }
 
     setLoading(false)
@@ -61,7 +73,7 @@ export default function ProductPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 pt-24">
+      <div className="mx-auto max-w-7xl px-4 py-8 pt-32">
         <div className="flex flex-col gap-8 md:flex-row">
           <div className="h-[400px] w-full animate-pulse rounded-lg bg-muted md:w-1/2" />
           <div className="flex w-full flex-col md:w-1/2">
@@ -77,7 +89,7 @@ export default function ProductPage() {
 
   if (!product) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 pt-24 text-center">
+      <div className="mx-auto max-w-7xl px-4 py-8 pt-32 text-center">
         <h1 className="mb-4 text-2xl font-bold">Product Not Found</h1>
         <p className="mb-8 text-muted-foreground">
           The product you are looking for does not exist or has been removed.
@@ -90,7 +102,7 @@ export default function ProductPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-16 pt-24">
+    <div className="mx-auto max-w-7xl px-4 py-8 pt-32">
       {/* Breadcrumbs */}
       <nav className="mb-8">
         <ol className="flex text-sm text-muted-foreground">
@@ -174,9 +186,10 @@ export default function ProductPage() {
               {" "}{product.price.toLocaleString()}
             </div>
             <span className="text-sm text-muted-foreground">
-              {product.category === "Wheels" ? "/set" :
-               product.category === "Brakes" ? "/pair" :
-               product.category === "Lighting" ? "/pair" :
+              {product.category === "Rings" ? "/piece" :
+               product.category === "Necklaces" ? "/piece" :
+               product.category === "Earrings" ? "/pair" :
+               product.category === "Bracelets" ? "/piece" :
                "/piece"}
             </span>
           </div>
@@ -186,28 +199,36 @@ export default function ProductPage() {
           </div>
 
           {/* Quantity Selector */}
-          <div className="mt-8 flex items-center">
-            <span className="mr-4 text-sm font-medium">Quantity:</span>
-            <div className="flex items-center">
-              <Button variant="outline" size="icon" onClick={decreaseQuantity} disabled={quantity <= 1}>
+          <div className="mt-8 flex items-center gap-4">
+            <div className="flex items-center rounded-lg border">
+              <button
+                onClick={decreaseQuantity}
+                className="flex h-10 w-10 items-center justify-center rounded-l-lg border-r text-muted-foreground hover:bg-muted"
+                aria-label="Decrease quantity"
+              >
                 <Minus className="h-4 w-4" />
-              </Button>
-              <span className="mx-4 w-8 text-center">{quantity}</span>
-              <Button variant="outline" size="icon" onClick={increaseQuantity}>
+              </button>
+              <span className="flex h-10 w-12 items-center justify-center border-x text-center">
+                {quantity}
+              </span>
+              <button
+                onClick={increaseQuantity}
+                className="flex h-10 w-10 items-center justify-center rounded-r-lg border-l text-muted-foreground hover:bg-muted"
+                aria-label="Increase quantity"
+              >
                 <Plus className="h-4 w-4" />
-              </Button>
+              </button>
             </div>
+            <Button
+              onClick={handleAddToCart}
+              size="lg"
+              className="flex-1"
+              disabled={!product.inStock}
+            >
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Add to Cart
+            </Button>
           </div>
-
-          {/* Add to Cart Button */}
-          <Button 
-            onClick={handleAddToCart} 
-            size="lg" 
-            className="mt-8 gap-2 bg-black text-white hover:bg-black/90 transition-colors"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            Add to Cart
-          </Button>
 
           {/* Features */}
           <div className="mt-8 grid grid-cols-1 gap-4 rounded-lg border p-4 sm:grid-cols-3">
@@ -219,7 +240,7 @@ export default function ProductPage() {
             <div className="flex flex-col items-center text-center">
               <Shield className="mb-2 h-6 w-6 text-primary" />
               <span className="text-sm font-medium">Warranty</span>
-              <span className="text-xs text-muted-foreground">{product.specs?.warranty || 'Standard warranty'}</span>
+              <span className="text-xs text-muted-foreground">Lifetime warranty on craftsmanship</span>
             </div>
             <div className="flex flex-col items-center text-center">
               <RotateCcw className="mb-2 h-6 w-6 text-primary" />
@@ -241,38 +262,30 @@ export default function ProductPage() {
           <TabsContent value="description" className="mt-6">
             <div className="prose max-w-none">
               <p>{product.description}</p>
-              <p>
-                This high-quality {product.name.toLowerCase()} is designed to provide optimal performance and
-                durability. Made from premium materials, it ensures reliable operation and long-lasting use. Compatible
-                with most vehicle makes and models, it's an excellent choice for both professional mechanics and DIY
-                enthusiasts.
-              </p>
-              <p>
-                Our products undergo rigorous quality control to ensure they meet the highest standards. We stand behind
-                our products with a {product.specs?.warranty || 'standard'} warranty for your peace of mind.
-              </p>
+              {product.features && product.features.length > 0 && (
+                <>
+                  <h3>Key Features</h3>
+                  <ul>
+                    {product.features.map((feature, index) => (
+                      <li key={index}>{feature}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="specifications" className="mt-6">
             <div className="overflow-hidden rounded-lg border">
               <table className="w-full text-sm">
                 <tbody>
-                  <tr className="border-b">
-                    <th className="bg-muted px-4 py-2 text-left font-medium">Material</th>
-                    <td className="px-4 py-2">{product.specs?.material || 'Standard material'}</td>
-                  </tr>
-                  <tr className="border-b">
-                    <th className="bg-muted px-4 py-2 text-left font-medium">Dimensions</th>
-                    <td className="px-4 py-2">Varies by model</td>
-                  </tr>
-                  <tr className="border-b">
-                    <th className="bg-muted px-4 py-2 text-left font-medium">Weight</th>
-                    <td className="px-4 py-2">Varies by model</td>
-                  </tr>
-                  <tr>
-                    <th className="bg-muted px-4 py-2 text-left font-medium">Warranty</th>
-                    <td className="px-4 py-2">{product.specs?.warranty || 'Standard warranty'}</td>
-                  </tr>
+                  {Object.entries(product.specs || {}).map(([key, value]) => (
+                    <tr key={key} className="border-b">
+                      <th className="bg-muted px-4 py-2 text-left font-medium capitalize">
+                        {key.replace(/([A-Z])/g, ' $1').trim()}
+                      </th>
+                      <td className="px-4 py-2">{value}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -281,7 +294,7 @@ export default function ProductPage() {
             <div className="prose max-w-none">
               <h3>Shipping Information</h3>
               <p>
-                We offer free shipping on all orders over $100. Standard shipping typically takes 3-5 business days,
+                We offer free shipping on all orders over Ksh 10,000. Standard shipping typically takes 3-5 business days,
                 depending on your location. Express shipping options are available at checkout for an additional fee.
               </p>
 
@@ -294,8 +307,8 @@ export default function ProductPage() {
 
               <h3>Warranty</h3>
               <p>
-                This product comes with a {product.specs?.warranty || 'standard'} warranty against manufacturing defects. The
-                warranty does not cover damage due to improper use, accidents, or normal wear and tear. Please contact
+                All our jewelry comes with a lifetime warranty on craftsmanship. This warranty covers any manufacturing
+                defects but does not cover damage due to improper use, accidents, or normal wear and tear. Please contact
                 our customer service team for warranty claims.
               </p>
             </div>

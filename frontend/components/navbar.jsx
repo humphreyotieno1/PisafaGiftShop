@@ -25,13 +25,18 @@ import {
   DropdownMenuSeparator 
 } from "@/components/ui/dropdown-menu"
 import { motion, AnimatePresence } from "framer-motion"
+import Image from "next/image"
 
 const CATEGORIES = [
-  "Engine Parts", 
-  "Body Parts", 
-  "Electrical", 
-  "Wheels & Tires", 
-  "Frames"
+  "Pendant", 
+  "Earring", 
+  "Necklace", 
+  "Ring",
+  "Bracelet",
+  "Anklet",
+  "Bangle",
+  "Garment Accessories",
+  "Watches",
 ]
 
 const navLinks = [
@@ -121,7 +126,7 @@ export default function Navbar() {
     <header className="fixed top-0 z-50 w-full">
       {/* Announcement Banner */}
       <div className="bg-primary px-4 py-2 text-center text-xs sm:text-sm font-medium text-primary-foreground">
-        Ride Strong | Repair Fast | Stay Ahead: <span className="font-bold">AUTO SPARES</span>
+        Elegance | Style | Luxury: <span className="font-bold">PISAFA GIFTS SHOP</span>
       </div>
 
       {/* Main Navigation */}
@@ -178,12 +183,15 @@ export default function Navbar() {
                       {/* Mobile Menu Header */}
                       <div className="border-b p-4">
                         <div className="flex items-center justify-between mb-4">
-                          <Link 
-                            href="/" 
-                            className="text-xl font-bold"
-                            onClick={() => setIsMobileMenuOpen(false)}
-                          >
-                            Victoria Phantom
+                          <Link href="/">
+                            <Image
+                              src="/pisafalogo.png"
+                              alt="Pisafa Gifts Shop Logo"
+                              width={40}
+                              height={40}
+                              className="h-10 w-auto"
+                              priority
+                            />
                           </Link>
                           <Button 
                             variant="ghost" 
@@ -301,7 +309,14 @@ export default function Navbar() {
 
             {/* Logo */}
             <Link href="/" className="flex items-center">
-              <span className="text-xl font-bold md:text-2xl">Victoria Phantom</span>
+              <Image
+                src="/pisafalogo.png"
+                alt="Pisafa Gifts Shop Logo"
+                width={40}
+                height={40}
+                className="h-10 w-auto"
+                priority
+              />
             </Link>
           </div>
 

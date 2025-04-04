@@ -2,8 +2,12 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { prisma } from './prisma';
 
-// This would normally be in an environment variable
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-for-development';
+// Ensure JWT_SECRET is set
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is not set');
+}
+
+const JWT_SECRET = process.env.JWT_SECRET;
 
 /**
  * Hash a password
@@ -39,6 +43,7 @@ export function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET);
   } catch (error) {
+    console.error('Token verification failed:', error.message);
     return null;
   }
 }
@@ -47,16 +52,36 @@ export function verifyToken(token) {
  * Create a session
  */
 export async function createSession(userId) {
-  const token = jwt.sign({ userId }, JWT_SECRET, { expiresIn: '7d' });
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
-
   try {
+    // First verify the user exists
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    // Use the same token generation as generateToken for consistency
+    const token = generateToken(user);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
     const session = await prisma.session.create({
       data: {
         userId,
         token,
         expiresAt,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+            role: true,
+          },
+        },
       },
     });
 
@@ -64,7 +89,18 @@ export async function createSession(userId) {
   } catch (error) {
     console.error('Error creating session:', error);
     // If we can't create a session in the database, still return a token
-    return { token, expiresAt };
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+    
+    if (!user) {
+      throw new Error('User not found');
+    }
+    
+    return { 
+      token: generateToken(user),
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+    };
   }
 }
 
@@ -75,9 +111,10 @@ export async function getUserFromToken(token) {
   if (!token) return null;
   
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    const userId = decoded.id || decoded.userId;
+    const decoded = verifyToken(token);
+    if (!decoded) return null;
     
+    const userId = decoded.id;
     if (!userId) return null;
     
     const user = await prisma.user.findUnique({

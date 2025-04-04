@@ -13,10 +13,10 @@ export default function Home() {
 
       <section className="mx-auto w-full max-w-7xl px-4 text-center">
         <h2 className="mb-6 text-3xl font-bold tracking-tight md:text-4xl">
-          Ready to find the perfect parts for your motocycle?
+          Ready to find the perfect gift for your loved ones?
         </h2>
         <p className="mx-auto mb-8 max-w-2xl text-muted-foreground">
-          Browse our extensive catalog of high-quality spare parts for all makes and models. We offer competitive prices
+          Browse our extensive catalog of high-quality gift items for all occasions. We offer competitive prices
           and fast shipping.
         </p>
         <Button asChild size="lg" className="px-8">

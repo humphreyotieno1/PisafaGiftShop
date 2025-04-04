@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -13,12 +14,15 @@ import Pagination from "@/components/pagination"
 import { generateProducts } from "@/lib/dummy-data"
 
 export default function ShopPage() {
+  const searchParams = useSearchParams()
   const [products, setProducts] = useState([])
   const [filteredProducts, setFilteredProducts] = useState([])
   const [currentPage, setCurrentPage] = useState(1)
   const [searchQuery, setSearchQuery] = useState("")
   const [sortBy, setSortBy] = useState("featured")
   const [loading, setLoading] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "")
+  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "")
 
   const productsPerPage = 12
 
@@ -33,12 +37,26 @@ export default function ShopPage() {
   useEffect(() => {
     let result = [...products]
 
+    // Apply category filter
+    if (selectedCategory) {
+      result = result.filter(
+        (product) => product.category.toLowerCase() === selectedCategory.toLowerCase()
+      )
+    }
+
+    // Apply subcategory filter if exists
+    if (selectedSubcategory) {
+      result = result.filter(
+        (product) => product.subcategory?.toLowerCase() === selectedSubcategory.toLowerCase()
+      )
+    }
+
     // Apply search filter
     if (searchQuery) {
       result = result.filter(
         (product) =>
           product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          product.category.toLowerCase().includes(searchQuery.toLowerCase()),
+          product.description.toLowerCase().includes(searchQuery.toLowerCase()),
       )
     }
 
@@ -66,7 +84,7 @@ export default function ShopPage() {
 
     setFilteredProducts(result)
     setCurrentPage(1) // Reset to first page when filters change
-  }, [searchQuery, sortBy, products])
+  }, [searchQuery, sortBy, products, selectedCategory, selectedSubcategory])
 
   // Get current products for pagination
   const indexOfLastProduct = currentPage * productsPerPage
@@ -80,11 +98,11 @@ export default function ShopPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-4 pt-32 pb-8">
       <div className="flex flex-col gap-8 lg:flex-row">
         {/* Sidebar - Hidden on mobile */}
         <aside className="hidden lg:block lg:w-72 shrink-0">
-          <div className="sticky top-24">
+          <div className="sticky top-32">
             <CategorySidebar />
           </div>
         </aside>
@@ -93,7 +111,7 @@ export default function ShopPage() {
         <div className="flex-1">
           <div className="mb-8">
             <h1 className="text-3xl font-bold">Shop</h1>
-            <p className="text-muted-foreground">Browse our collection of quality spare parts</p>
+            <p className="text-muted-foreground">Browse our exquisite collection of jewelry</p>
           </div>
 
           {/* Filters and Search */}

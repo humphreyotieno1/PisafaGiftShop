@@ -54,10 +54,10 @@ export default function ContactPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-12 w-full mt-20">
+    <div className="mx-auto max-w-7xl px-4 pt-32 pb-12">
       <div className="mb-12 text-center">
         <h1 className="text-3xl font-bold md:text-4xl">Contact Us</h1>
-        <p className="mt-4 text-muted-foreground">Have questions or need assistance? We're here to help!</p>
+        <p className="mt-4 text-muted-foreground">Have questions about our jewelry collection? We're here to help!</p>
       </div>
 
       <div className="grid grid-cols-1 gap-12 md:grid-cols-2">
@@ -77,9 +77,9 @@ export default function ContactPage() {
                 <div>
                   <h3 className="font-medium">Our Location</h3>
                   <p className="text-muted-foreground">
-                    Siaya Along Siaya Law Court
+                    Equity Trading Centre
                     <br />
-                    Siaya, Kenya
+                    Kenya
                   </p>
                 </div>
               </div>
@@ -89,8 +89,8 @@ export default function ContactPage() {
                 <div>
                   <h3 className="font-medium">Phone</h3>
                   <p className="text-muted-foreground">
-                    <a href="tel:+254712345678" className="hover:text-primary">
-                      +254 720 060 244
+                    <a href="tel:+254721728618" className="hover:text-primary">
+                      +254 721 728 618
                     </a>
                   </p>
                 </div>
@@ -101,8 +101,8 @@ export default function ContactPage() {
                 <div>
                   <h3 className="font-medium">Email</h3>
                   <p className="text-muted-foreground">
-                    <a href="mailto:info@victoriaphantom.com" className="hover:text-primary">
-                      info@victoriaphantom.com
+                    <a href="mailto:info@pisaafagiftsshop.com" className="hover:text-primary">
+                      info@pisaafagiftsshop.com
                     </a>
                   </p>
                 </div>
@@ -114,11 +114,11 @@ export default function ContactPage() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span>Monday - Friday:</span>
-                  <span>8:00 AM - 6:00 PM</span>
+                  <span>9:00 AM - 7:00 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Saturday:</span>
-                  <span>8:00 AM - 6:00 PM</span>
+                  <span>9:00 AM - 5:00 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Sunday:</span>
@@ -172,13 +172,13 @@ export default function ContactPage() {
       <div className="mt-16">
         <div className="aspect-[16/9] w-full overflow-hidden rounded-lg border">
           <iframe
-            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d63820.60001711311!2d36.78002097431642!3d-1.2920658999999908!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x182f1172d84d49a7%3A0xf7cf0254b297924c!2sNairobi%2C%20Kenya!5e0!3m2!1sen!2sus!4v1647356407899!5m2!1sen!2sus"
+            src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3989.123456789012!2d34.456789!3d-0.123456!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMMKwMDcnMjQuNCJTIDM0wrAyNyc0NC40IkU!5e0!3m2!1sen!2ske!4v1234567890!5m2!1sen!2ske"
             width="100%"
             height="100%"
             style={{ border: 0 }}
             allowFullScreen=""
             loading="lazy"
-            title="Victoria Phantom Spares Location"
+            title="Pisafa Gift Shop Location"
           ></iframe>
         </div>
       </div>

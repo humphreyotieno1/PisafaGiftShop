@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 import { verifyAuth } from "@/lib/auth"
 
 // GET /api/admin/categories - Get all categories
@@ -32,11 +32,11 @@ export async function GET(request) {
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
-        { description: { contains: search, mode: "insensitive" } },
+        { subcategory: { contains: search, mode: "insensitive" } },
       ]
     }
 
-    // Query the database
+    // Query the database for categories
     const categories = await prisma.category.findMany({
       where,
       skip,
@@ -45,16 +45,23 @@ export async function GET(request) {
       include: {
         _count: {
           select: {
-            products: true,
-          },
-        },
-      },
+            products: true
+          }
+        }
+      }
     })
     
     const totalCategories = await prisma.category.count({ where })
 
     const response = NextResponse.json({
-      categories,
+      categories: categories.map(category => ({
+        id: category.id,
+        name: category.name,
+        subcategory: category.subcategory,
+        productCount: category._count.products,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
+      })),
       pagination: {
         total: totalCategories,
         page,
@@ -103,7 +110,7 @@ export async function POST(request) {
     const body = await request.json()
     
     // Validate required fields
-    const requiredFields = ["name", "description"]
+    const requiredFields = ["name", "subcategory"]
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
@@ -113,32 +120,36 @@ export async function POST(request) {
       }
     }
 
-    // Generate slug from name if not provided
-    const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    
-    // Check if slug already exists
-    const existingCategory = await prisma.category.findUnique({
-      where: { slug },
-    });
-    
-    if (existingCategory) {
-      return NextResponse.json(
-        { error: "A category with this slug already exists" },
-        { status: 400 }
-      );
-    }
-
-    // Create the category in the database
-    const category = await prisma.category.create({
-      data: {
+    // Check if category already exists
+    const existingCategory = await prisma.category.findFirst({
+      where: {
         name: body.name,
-        slug: slug,
-        description: body.description,
-        image: body.image || "/categories/default-category.svg",
+        subcategory: body.subcategory,
       },
     })
 
-    const response = NextResponse.json({ category }, { status: 201 })
+    if (existingCategory) {
+      return NextResponse.json(
+        { error: "Category already exists" },
+        { status: 400 }
+      )
+    }
+
+    // Create the category
+    const category = await prisma.category.create({
+      data: {
+        name: body.name,
+        subcategory: body.subcategory,
+      },
+    })
+
+    const response = NextResponse.json({ 
+      category: {
+        id: category.id,
+        name: category.name,
+        subcategory: category.subcategory,
+      }
+    }, { status: 201 })
     
     // If token was refreshed, set the new token in a cookie
     if (tokenRefreshed && newToken) {
@@ -180,7 +191,7 @@ export async function PUT(request, { params }) {
     const body = await request.json()
     
     // Validate required fields
-    const requiredFields = ["name", "description"]
+    const requiredFields = ["name", "subcategory"]
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
@@ -190,40 +201,22 @@ export async function PUT(request, { params }) {
       }
     }
     
-    // Generate slug from name if not provided
-    const slug = body.slug || body.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    
-    // Check if slug already exists and belongs to a different category
-    const existingCategory = await prisma.category.findUnique({
-      where: { slug },
-    });
-    
-    if (existingCategory && existingCategory.id !== categoryId) {
-      return NextResponse.json(
-        { error: "A category with this slug already exists" },
-        { status: 400 }
-      );
-    }
-    
-    // Update the category in the database
-    const updatedCategory = await prisma.category.update({
+    // Update the category
+    const category = await prisma.category.update({
       where: { id: categoryId },
       data: {
         name: body.name,
-        slug: slug,
-        description: body.description,
-        image: body.image || "/categories/default-category.svg",
-      },
-      include: {
-        _count: {
-          select: {
-            products: true,
-          },
-        },
+        subcategory: body.subcategory,
       },
     })
 
-    const response = NextResponse.json({ category: updatedCategory })
+    const response = NextResponse.json({ 
+      category: {
+        id: category.id,
+        name: category.name,
+        subcategory: category.subcategory,
+      }
+    })
     
     // If token was refreshed, set the new token in a cookie
     if (tokenRefreshed && newToken) {
@@ -263,26 +256,7 @@ export async function DELETE(request, { params }) {
 
     const categoryId = params.id
     
-    // Check if category has products
-    const category = await prisma.category.findUnique({
-      where: { id: categoryId },
-      include: {
-        _count: {
-          select: {
-            products: true,
-          },
-        },
-      },
-    })
-    
-    if (category?._count?.products > 0) {
-      return NextResponse.json(
-        { error: "Cannot delete category with associated products" },
-        { status: 400 }
-      )
-    }
-    
-    // Delete the category from the database
+    // Delete the category
     await prisma.category.delete({
       where: { id: categoryId },
     })

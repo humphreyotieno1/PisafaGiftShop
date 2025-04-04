@@ -1,68 +1,73 @@
 // Generate random products for demo purposes
 export function generateProducts(count = 100) {
     const categories = [
-      "Brakes",
-      "Wheels",
-      "Lighting",
-      "Engine Parts",
-      "Body Parts",
-      "Interior",
-      "Suspension",
-      "Transmission",
-      "Cooling System",
-      "Exhaust System",
+      "Pendant",
+      "Earring",
+      "Necklace",
+      "Ring",
+      "Bracelet",
+      "Anklet",
+      "Bangle",
+      "Garment Accessories",
+      "Watches"
     ]
 
     // Define product data with specific images and price ranges
     const productTemplates = [
       {
-        name: "Premium Brake Pads",
-        category: "Brakes",
+        name: "Diamond Solitaire Ring",
+        category: "Ring",
         image: "/products/default-product.svg",
-        priceRange: [8000, 15000],
+        priceRange: [8000, 20000],
       },
       {
-        name: "LED Headlight Kit",
-        category: "Lighting",
+        name: "Pearl Drop Earrings",
+        category: "Earring",
         image: "/products/default-product.svg",
-        priceRange: [15000, 25000],
+        priceRange: [5000, 15000],
       },
       {
-        name: "Alloy Wheel Set",
-        category: "Wheels",
+        name: "Gold Chain Necklace",
+        category: "Necklace",
         image: "/products/default-product.svg",
-        priceRange: [70000, 100000],
+        priceRange: [6000, 18000],
       },
       {
-        name: "High-Performance Oil Filter",
-        category: "Engine Parts",
+        name: "Silver Bangle Set",
+        category: "Bangle",
         image: "/products/default-product.svg",
-        priceRange: [2000, 5000],
+        priceRange: [4000, 12000],
       },
       {
-        name: "Leather Seat Covers",
-        category: "Interior",
+        name: "Gemstone Pendant",
+        category: "Pendant",
         image: "/products/default-product.svg",
-        priceRange: [20000, 35000],
+        priceRange: [3000, 10000],
       },
       {
-        name: "Performance Shock Absorber",
-        category: "Suspension",
+        name: "Diamond Tennis Bracelet",
+        category: "Bracelet",
         image: "/products/default-product.svg",
-        priceRange: [15000, 25000],
+        priceRange: [7000, 20000],
       },
       {
-        name: "Premium Brake Rotors",
-        category: "Brakes",
+        name: "Gold Anklet",
+        category: "Anklet",
         image: "/products/default-product.svg",
-        priceRange: [10000, 18000],
+        priceRange: [3000, 8000],
       },
       {
-        name: "Sport Exhaust System",
-        category: "Exhaust System",
+        name: "Luxury Watch",
+        category: "Watches",
         image: "/products/default-product.svg",
-        priceRange: [40000, 60000],
+        priceRange: [10000, 20000],
       },
+      {
+        name: "Crystal Brooch",
+        category: "Garment Accessories",
+        image: "/products/default-product.svg",
+        priceRange: [1000, 5000],
+      }
     ]
 
     const products = []
@@ -82,16 +87,18 @@ export function generateProducts(count = 100) {
         category: template.category,
         rating,
         inStock: true, // Ensure all products are in stock
-        description: `Premium quality ${template.name.toLowerCase()} designed for superior performance and durability. Features advanced technology and premium materials for optimal results. Compatible with a wide range of vehicle makes and models.`,
+        description: `Exquisite ${template.name.toLowerCase()} crafted with premium materials. Features elegant design and superior craftsmanship. Perfect for special occasions and everyday wear.`,
         features: [
           "Premium quality materials",
-          "Enhanced durability",
-          "Superior performance",
-          "Easy installation",
+          "Handcrafted design",
+          "Elegant finish",
+          "Comfortable wear",
+          "Durable construction"
         ],
         specs: {
-          material: ["Aircraft-grade Aluminum", "High-strength Steel", "Premium Composite", "Carbon Fiber"][Math.floor(Math.random() * 4)],
-          warranty: ["2 years", "3 years", "5 years", "Lifetime"][Math.floor(Math.random() * 4)],
+          material: ["18K Gold", "925 Silver", "Platinum", "Rose Gold"][Math.floor(Math.random() * 4)],
+          gemstone: ["Diamond", "Ruby", "Sapphire", "Emerald", "Pearl"][Math.floor(Math.random() * 5)],
+          warranty: ["1 year", "2 years", "Lifetime"][Math.floor(Math.random() * 3)],
         },
       })
     }

@@ -7,8 +7,8 @@ export default function AboutPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-12 mt-20">
       <div className="mb-12 text-center">
-        <h1 className="text-3xl font-bold md:text-4xl">About Victoria Phantom Spares</h1>
-        <p className="mt-4 text-muted-foreground">Ride Strong | Repair Fast | Stay Ahead</p>
+        <h1 className="text-3xl font-bold md:text-4xl">About Pisafa Gift Shop</h1>
+        <p className="mt-4 text-muted-foreground">Elegance | Quality | Craftsmanship</p>
       </div>
 
       <div className="grid gap-12 md:grid-cols-2 lg:gap-16">
@@ -19,13 +19,12 @@ export default function AboutPage() {
           transition={{ duration: 0.5 }}
           className="flex flex-col gap-6"
         >
-          <h2 className="text-2xl font-bold">About Us</h2>
+          <h2 className="text-2xl font-bold">Our Story</h2>
           <p className="text-muted-foreground">
-            Victoria Phantom Auto Spares Limited is committed to achieving operational excellece, fostering a positive workplace culture, and driving sustainable growth. To ensure effective governance and accountability.
+            Pisafa Gift Shop is dedicated to bringing you exquisite jewelry pieces that blend traditional elegance with modern design. We believe that every piece of jewelry tells a story and should be as unique as the person wearing it.
           </p>
           <p className="text-muted-foreground">
-            Over the years, we've built strong relationships with manufacturers and suppliers worldwide, enabling us to
-            offer an extensive range of genuine and aftermarket parts for all major motorcycle brands.
+            Our journey began with a passion for craftsmanship and a commitment to quality. We carefully select each piece, ensuring it meets our high standards of beauty, durability, and value. From classic designs to contemporary styles, our collection offers something special for every occasion.
           </p>
         </motion.div>
 
@@ -37,8 +36,8 @@ export default function AboutPage() {
           className="relative aspect-video overflow-hidden rounded-lg"
         >
           <Image
-            src="/office.jpg"
-            alt="Victoria Phantom Spares Store"
+            src="/store.jpg"
+            alt="Pisafa Gifts Shop Store"
             fill
             className="object-cover"
             sizes="(max-width: 768px) 100vw, 50vw"
@@ -56,34 +55,34 @@ export default function AboutPage() {
           <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
             {[
               {
-                title: "Quality Assurance",
+                title: "Quality Craftsmanship",
                 description:
-                  "All our parts undergo rigorous quality checks to ensure they meet the highest standards of performance and durability.",
+                  "Each piece is carefully crafted using premium materials and traditional techniques to ensure lasting beauty and durability.",
               },
               {
-                title: "Expert Support",
+                title: "Expert Guidance",
                 description:
-                  "Our team of experienced professionals is always ready to help you find the right parts for your vehicle.",
+                  "Our knowledgeable staff is here to help you find the perfect piece that matches your style and occasion.",
               },
               {
-                title: "Fast Shipping",
+                title: "Fast Delivery",
                 description:
-                  "We offer quick and reliable shipping services to get your parts delivered when you need them.",
+                  "We offer reliable and secure shipping to ensure your jewelry arrives safely and on time.",
               },
               {
-                title: "Competitive Pricing",
+                title: "Affordable Luxury",
                 description:
-                  "We work hard to offer the best prices without compromising on quality.",
+                  "We believe everyone deserves beautiful jewelry, offering high-quality pieces at accessible prices.",
               },
               {
-                title: "Wide Selection",
+                title: "Diverse Collection",
                 description:
-                  "From engine components to body parts, we stock everything you need for your vehicle.",
+                  "From elegant rings to statement necklaces, our collection offers a wide range of styles for every taste.",
               },
               {
-                title: "Customer Satisfaction",
+                title: "Customer Care",
                 description:
-                  "Your satisfaction is our priority, backed by our hassle-free return policy.",
+                  "Your satisfaction is our priority, backed by our commitment to excellent service and support.",
               },
             ].map((feature, index) => (
               <motion.div

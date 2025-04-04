@@ -9,38 +9,66 @@ import { ChevronRight } from "lucide-react"
 const categories = [
   {
     id: 1,
-    name: "Engine Parts",
-    image: "/featured/engine.jpeg?height=400&width=400",
-    count: 120,
-    slug: "engine-parts",
+    name: "Pendant",
+    image: "/featured/pendant.jpg",
+    count: 45,
+    slug: "pendant",
   },
   {
     id: 2,
-    name: "Body Parts",
-    image: "/featured/body.jpeg?height=400&width=400",
-    count: 85,
-    slug: "body-parts",
+    name: "Earring",
+    image: "/featured/earring.jpg",
+    count: 38,
+    slug: "earring",
   },
   {
     id: 3,
-    name: "Electrical",
-    image: "/featured/electrical.jpeg?height=400&width=400",
-    count: 95,
-    slug: "electrical",
+    name: "Necklace",
+    image: "/featured/necklace.jpg",
+    count: 42,
+    slug: "necklace",
   },
   {
     id: 4,
-    name: "Wheels & Tires",
-    image: "/featured/tires.jpeg?height=400&width=400",
-    count: 65,
-    slug: "wheels-tires",
+    name: "Ring",
+    image: "/featured/ring.jpg",
+    count: 35,
+    slug: "ring",
   },
   {
     id: 5,
-    name: "Frame",
-    image: "/featured/frame.jpeg?height=400&width=400",
-    count: 110,
-    slug: "frame",
+    name: "Bracelet",
+    image: "/featured/bracelet.jpg",
+    count: 28,
+    slug: "bracelet",
+  },
+  {
+    id: 6,
+    name: "Anklet",
+    image: "/featured/anklet.jpg",
+    count: 25,
+    slug: "anklet",
+  },
+  {
+    id: 7,
+    name: "Bangle",
+    image: "/featured/bangle.jpg",
+    count: 32,
+    slug: "bangle",
+  },
+  {
+    id: 8,
+    name: "Garment Accessories",
+    image: "/featured/garment-accessories.jpg",
+    count: 20,
+    slug: "garment-accessories",
+  },
+  {
+    id: 9,
+    name: "Watches",
+    image: "/featured/watches.jpg",
+    count: 30,
+    slug: "watches",
   },
 ]
 
@@ -50,7 +78,7 @@ export default function CategoryShowcase() {
       <div className="mb-8 flex flex-col items-center justify-between gap-4 md:flex-row">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Shop by Category</h2>
-          <p className="text-muted-foreground">Browse our extensive collection of parts by category</p>
+          <p className="text-muted-foreground">Browse our exquisite collection of jewelry by category</p>
         </div>
         <Link 
           href="/shop" 

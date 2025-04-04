@@ -27,7 +27,7 @@ const registerSchema = z.object({
 .refine((data) => {
   // If role is ADMIN, adminCode is required and must match the expected value
   if (data.role === "ADMIN") {
-    return data.adminCode === process.env.NEXT_PUBLIC_ADMIN_CODE || data.adminCode === "VICTORIA2024"; // Fallback code
+    return data.adminCode === process.env.NEXT_PUBLIC_ADMIN_CODE;
   }
   return true;
 }, {
@@ -106,7 +106,7 @@ export default function RegisterPage() {
       >
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold">Create an Account</h1>
-          <p className="text-sm text-muted-foreground">Sign up to get started with Victoria Spares</p>
+          <p className="text-sm text-muted-foreground">Sign up to get started with Pisafa Gifts Shop</p>
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

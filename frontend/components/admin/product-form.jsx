@@ -1,426 +1,448 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useCallback } from "react"
 import { useRouter } from "next/navigation"
-import { motion } from "framer-motion"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import * as z from "zod"
-import { useDropzone } from "react-dropzone"
-import { X, Upload, Plus, Minus, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useToast } from "@/components/ui/use-toast"
+import { Minus, Plus, Trash2, Upload } from "lucide-react"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 
-// Define the validation schema for the product form
-const productSchema = z.object({
-  name: z.string().min(3, { message: "Product name must be at least 3 characters" }),
-  description: z.string().min(10, { message: "Description must be at least 10 characters" }),
-  price: z.coerce.number().positive({ message: "Price must be a positive number" }),
-  categoryId: z.string().min(1, { message: "Please select a category" }),
-  inStock: z.boolean().default(true),
-  features: z.array(z.string()).optional().default([]),
-})
-
-export default function ProductForm({ product, categories }) {
+export default function ProductForm({ categories, product, onSuccess }) {
   const router = useRouter()
   const { toast } = useToast()
   const [loading, setLoading] = useState(false)
-  const [imageFile, setImageFile] = useState(null)
-  const [imagePreview, setImagePreview] = useState(product?.image || "") 
-  const [features, setFeatures] = useState(product?.features || [""])
-  const [specs, setSpecs] = useState(product?.specs ? Object.entries(product.specs).map(([key, value]) => ({ key, value })) : [{ key: "", value: "" }])
-
-  // Initialize form with product data if editing, or empty values if creating
-  const {
-    register,
-    handleSubmit,
-    setValue,
-    formState: { errors },
-    reset,
-  } = useForm({
-    resolver: zodResolver(productSchema),
-    defaultValues: {
-      name: product?.name || "",
-      description: product?.description || "",
-      price: product?.price || "",
-      categoryId: product?.categoryId || "",
-      inStock: product?.inStock !== undefined ? product.inStock : true,
-      features: product?.features || [""],
-    },
+  const [dragActive, setDragActive] = useState(false)
+  const [previewImage, setPreviewImage] = useState(product?.image || '')
+  const [formData, setFormData] = useState({
+    name: product?.name || '',
+    description: product?.description || '',
+    price: product?.price?.toString() || '',
+    imageUrl: product?.imageUrl || '',
+    imageData: product?.imageData || '',
+    categoryId: product?.categoryId || '',
+    features: product?.features || [''],
+    specs: product?.specs || [{ name: '', value: '' }],
+    stock: product?.stock?.toString() || '',
+    inStock: product?.stock > 0 || false
   })
 
-  // Set up dropzone for image upload
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    accept: {
-      'image/*': ['.jpeg', '.jpg', '.png', '.webp']
-    },
-    maxFiles: 1,
-    maxSize: 5 * 1024 * 1024, // 5MB
-    onDrop: acceptedFiles => {
-      const file = acceptedFiles[0]
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file))
-      toast({
-        title: "Image selected",
-        description: "Image will be uploaded when you save the product."
-      })
-    },
-    onDropRejected: fileRejections => {
-      const error = fileRejections[0]?.errors[0]
+  const handleDrag = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    const file = e.dataTransfer?.files?.[0]
+    if (file) {
+      await handleImageUpload(file)
+    }
+  }, [])
+
+  const handleImageUpload = async (file) => {
+    try {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only JPG, PNG, and WEBP files are allowed.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Validate file size (2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "File size too large. Maximum size is 2MB.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64Data = reader.result
+        setFormData(prev => ({
+          ...prev,
+          imageData: base64Data,
+          imageUrl: null // Clear the URL if we're using base64 data
+        }))
+        setPreviewImage(base64Data)
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
+        })
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Error handling image:", error)
       toast({
         title: "Error",
-        description: error?.message || "Failed to upload image. Please try again.",
-        variant: "destructive"
+        description: "Failed to process image",
+        variant: "destructive",
       })
     }
-  })
+  }
 
-  // Handle form submission
-  const onSubmit = async (data) => {
+  const handleSubmit = async (e) => {
+    e.preventDefault()
     setLoading(true)
 
     try {
-      // Prepare the product data
+      const url = product?.id
+        ? `/api/admin/products/${product.id}`
+        : '/api/admin/products'
+      
+      const method = product?.id ? 'PUT' : 'POST'
+
+      // Prepare the data
       const productData = {
-        ...data,
-        features: features.filter(feature => feature.trim() !== ""),
-        specs: Object.fromEntries(specs.filter(spec => spec.key.trim() !== "" && spec.value.trim() !== "").map(spec => [spec.key, spec.value])),
+        name: formData.name,
+        description: formData.description,
+        price: parseFloat(formData.price),
+        imageUrl: formData.imageUrl,
+        imageData: formData.imageData,
+        categoryId: formData.categoryId,
+        stock: parseInt(formData.stock),
+        features: formData.features.filter(f => f.trim() !== ''),
+        specs: formData.specs.reduce((acc, spec) => {
+          if (spec.name && spec.value) {
+            acc[spec.name] = spec.value
+          }
+          return acc
+        }, {})
       }
 
-      try {
-        // Upload image if provided
-        let imageUrl = product?.image || ""
-        if (imageFile) {
-          const formData = new FormData()
-          formData.append('file', imageFile)
-          
-          setLoading(true)
-          const uploadResponse = await fetch('/api/upload', {
-            method: 'POST',
-            body: formData
-          })
-          setLoading(false)
-          
-          if (!uploadResponse.ok) {
-            throw new Error('Failed to upload image')
-          }
-          
-          const { url } = await uploadResponse.json()
-          imageUrl = url
-        }
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(productData),
+      })
 
-        // Create or update product
-        const url = product 
-          ? `/api/admin/products/${product.id}`
-          : '/api/admin/products'
-          
-        const response = await fetch(url, {
-          method: product ? 'PUT' : 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            ...productData,
-            image: imageUrl,
-          }),
-        })
-
-        if (!response.ok) {
-          const error = await response.json()
-          throw new Error(error.message || 'Failed to save product')
-        }
-
-        toast({
-          title: product ? "Product updated" : "Product created",
-          description: product ? "The product has been updated successfully." : "The product has been created successfully.",
-        })
-
-        // Redirect to the products page
-        router.push("/admin/products")
-      } catch (error) {
-        console.error('Error saving product:', error)
-        toast({
-          title: "Error",
-          description: error.message || `Failed to ${product ? "update" : "create"} product. Please try again.`,
-          variant: "destructive",
-        })
-      } finally {
-        setLoading(false)
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to ${product?.id ? 'update' : 'create'} product`)
+      }
+      
+      toast({
+        title: `Product ${product?.id ? 'Updated' : 'Created'}`,
+        description: `Product has been successfully ${product?.id ? 'updated' : 'created'}.`,
+      })
+      
+      if (onSuccess) {
+        onSuccess()
+      } else {
+        router.push('/admin/products')
+        router.refresh()
       }
     } catch (error) {
-      console.error('Error in form submission:', error)
+      console.error('Error submitting product:', error)
       toast({
-        title: "Error",
-        description: error.message || "An unexpected error occurred",
-        variant: "destructive",
+        title: 'Error',
+        description: error.message || 'An unexpected error occurred',
+        variant: 'destructive',
       })
     } finally {
       setLoading(false)
     }
   }
 
-  // Handle adding a new feature field
-  const handleAddFeature = () => {
-    setFeatures([...features, ""])
+  const handleInputChange = (e) => {
+    const { id, value } = e.target
+    setFormData(prev => ({ ...prev, [id]: value }))
   }
 
-  // Handle updating a feature
   const handleFeatureChange = (index, value) => {
-    const updatedFeatures = [...features]
-    updatedFeatures[index] = value
-    setFeatures(updatedFeatures)
+    setFormData(prev => {
+      const newFeatures = [...prev.features]
+      newFeatures[index] = value
+      return { ...prev, features: newFeatures }
+    })
   }
 
-  // Handle removing a feature
-  const handleRemoveFeature = (index) => {
-    const updatedFeatures = [...features]
-    updatedFeatures.splice(index, 1)
-    setFeatures(updatedFeatures)
+  const addFeature = () => {
+    setFormData(prev => ({
+      ...prev,
+      features: [...prev.features, '']
+    }))
   }
 
-  // Handle adding a new spec field
-  const handleAddSpec = () => {
-    setSpecs([...specs, { key: "", value: "" }])
+  const removeFeature = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      features: prev.features.filter((_, i) => i !== index)
+    }))
   }
 
-  // Handle updating a spec
   const handleSpecChange = (index, field, value) => {
-    const updatedSpecs = [...specs]
-    updatedSpecs[index][field] = value
-    setSpecs(updatedSpecs)
+    setFormData(prev => {
+      const newSpecs = [...prev.specs]
+      newSpecs[index] = { ...newSpecs[index], [field]: value }
+      return { ...prev, specs: newSpecs }
+    })
   }
 
-  // Handle removing a spec
-  const handleRemoveSpec = (index) => {
-    const updatedSpecs = [...specs]
-    updatedSpecs.splice(index, 1)
-    setSpecs(updatedSpecs)
+  const addSpec = () => {
+    setFormData(prev => ({
+      ...prev,
+      specs: [...prev.specs, { name: '', value: '' }]
+    }))
+  }
+
+  const removeSpec = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      specs: prev.specs.filter((_, i) => i !== index)
+    }))
+  }
+
+  const handleCategoryChange = (categoryId) => {
+    setFormData(prev => ({ ...prev, categoryId }))
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-8" encType="multipart/form-data">
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* Product Details */}
-        <div className="space-y-6">
-          <div className="space-y-2">
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        <div className="space-y-4">
+          <div>
             <Label htmlFor="name">Product Name</Label>
-            <Input id="name" {...register("name")} />
-            {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+            <Input
+              id="name"
+              value={formData.name}
+              onChange={handleInputChange}
+              required
+            />
           </div>
 
-          <div className="space-y-2">
+          <div>
             <Label htmlFor="description">Description</Label>
-            <Textarea id="description" {...register("description")} rows={5} />
-            {errors.description && <p className="text-sm text-red-500">{errors.description.message}</p>}
+            <textarea
+              id="description"
+              className="w-full min-h-[100px] p-2 border rounded-md"
+              value={formData.description}
+              onChange={handleInputChange}
+              required
+            />
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
               <Label htmlFor="price">Price (Ksh)</Label>
-              <Input id="price" type="number" step="0.01" {...register("price")} />
-              {errors.price && <p className="text-sm text-red-500">{errors.price.message}</p>}
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="category">Category</Label>
-              {categories.length > 0 ? (
-                <Select 
-                  onValueChange={(value) => setValue("categoryId", value)} 
-                  defaultValue={product?.categoryId || ""}
-                >
-                  <SelectTrigger id="category">
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300">
-                  No categories found. Please <a href="/admin/categories/new" className="underline hover:text-amber-600 dark:hover:text-amber-200">create a category</a> first.
-                </div>
-              )}
-              {errors.categoryId && <p className="text-sm text-red-500">{errors.categoryId.message}</p>}
-            </div>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="stock">Stock Quantity</Label>
               <Input
-                id="stock"
+                id="price"
                 type="number"
-                min="0"
-                step="1"
-                {...register("stock", {
-                  valueAsNumber: true,
-                  min: { value: 0, message: "Stock cannot be negative" },
-                })}
+                step="0.01"
+                value={formData.price}
+                onChange={handleInputChange}
+                required
               />
-              {errors.stock && <p className="text-sm text-red-500">{errors.stock.message}</p>}
             </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="inStock"
-                {...register("inStock")}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-              />
-              <Label htmlFor="inStock" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Mark as In Stock
-              </Label>
+            <div>
+              <Label htmlFor="category">Category</Label>
+              <Select
+                value={formData.categoryId}
+                onValueChange={handleCategoryChange}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a category" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories?.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Products with stock quantity of 0 will automatically be marked as out of stock.
-              Use this checkbox to manually override the stock status.
-            </p>
           </div>
+
+          <div>
+            <Label htmlFor="stock">Stock Quantity</Label>
+            <Input
+              id="stock"
+              type="number"
+              value={formData.stock}
+              onChange={handleInputChange}
+              required
+            />
+          </div>
+
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="inStock"
+              checked={formData.inStock}
+              onCheckedChange={(checked) => 
+                setFormData(prev => ({ ...prev, inStock: checked }))
+              }
+            />
+            <Label htmlFor="inStock">Mark as In Stock</Label>
+          </div>
+          <p className="text-sm text-gray-500">
+            Products with stock quantity of 0 will automatically be marked as out of stock. Use this checkbox to manually override the stock status.
+          </p>
         </div>
 
-        {/* Product Image */}
-        <div className="space-y-6">
-          <div className="space-y-2">
+        <div className="space-y-4">
+          <div>
             <Label>Product Image</Label>
-            <div 
-              {...getRootProps()} 
-              className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-6 transition-colors hover:border-primary/50 hover:bg-primary/5"
+            <label
+              htmlFor="image-upload"
+              className={`block border-2 border-dashed rounded-lg p-4 text-center ${
+                dragActive ? 'border-primary bg-primary/5' : 'border-gray-200'
+              } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+              onDragEnter={handleDrag}
+              onDragLeave={handleDrag}
+              onDragOver={handleDrag}
+              onDrop={handleDrop}
             >
-              <input {...getInputProps()} />
-              {imagePreview ? (
-                <div className="relative h-40 w-full">
-                  <img 
-                    src={imagePreview} 
-                    alt="Product preview" 
-                    className="h-full w-full rounded-md object-contain" 
+              {previewImage ? (
+                <div className="relative">
+                  <img
+                    src={previewImage}
+                    alt="Product preview"
+                    className="w-full h-48 object-contain"
                   />
                   <Button
                     type="button"
-                    variant="destructive"
-                    size="icon"
-                    className="absolute right-0 top-0 h-6 w-6"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute top-2 right-2"
                     onClick={(e) => {
-                      e.stopPropagation()
-                      setImageFile(null)
-                      setImagePreview("")
+                      e.preventDefault() // Prevent label click
+                      setPreviewImage('')
+                      setFormData(prev => ({ ...prev, imageUrl: '', imageData: '' }))
                     }}
+                    disabled={loading}
                   >
-                    <X className="h-3 w-3" />
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
               ) : (
-                <div className="flex flex-col items-center justify-center text-center">
-                  <Upload className="mb-2 h-10 w-10 text-muted-foreground" />
-                  <p className="mb-1 text-sm font-medium">Drag & drop an image here, or click to select</p>
-                  <p className="text-xs text-muted-foreground">PNG, JPG or WEBP (max. 2MB)</p>
-                </div>
+                <>
+                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                  <p className="mt-2">
+                    {loading ? 'Uploading...' : 'Drag & drop an image here, or click to select'}
+                  </p>
+                  <p className="text-sm text-gray-500">PNG, JPG or WEBP (max. 2MB)</p>
+                </>
               )}
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => handleImageUpload(e.target.files?.[0])}
+                className="hidden"
+                id="image-upload"
+                disabled={loading}
+              />
+            </label>
+          </div>
+
+          <div>
+            <Label>Product Features</Label>
+            <div className="space-y-2">
+              {formData.features.map((feature, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={feature}
+                    onChange={(e) => handleFeatureChange(index, e.target.value)}
+                    placeholder={`Feature ${index + 1}`}
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeFeature(index)}
+                  >
+                    <Minus className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={addFeature}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Feature
+              </Button>
             </div>
           </div>
 
-          {/* Product Features */}
-          <div className="space-y-2">
-            <Label>Product Features</Label>
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {features.map((feature, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={feature}
-                        onChange={(e) => handleFeatureChange(index, e.target.value)}
-                        placeholder={`Feature ${index + 1}`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveFeature(index)}
-                        disabled={features.length === 1}
-                      >
-                        <Minus className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 w-full"
-                    onClick={handleAddFeature}
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Feature
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Product Specifications */}
-          <div className="space-y-2">
+          <div>
             <Label>Product Specifications</Label>
-            <Card>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  {specs.map((spec, index) => (
-                    <div key={index} className="grid grid-cols-5 gap-2">
-                      <Input
-                        className="col-span-2"
-                        value={spec.key}
-                        onChange={(e) => handleSpecChange(index, "key", e.target.value)}
-                        placeholder="Spec name"
-                      />
-                      <Input
-                        className="col-span-2"
-                        value={spec.value}
-                        onChange={(e) => handleSpecChange(index, "value", e.target.value)}
-                        placeholder="Spec value"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveSpec(index)}
-                        disabled={specs.length === 1}
-                        className="col-span-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
+            <div className="space-y-2">
+              {formData.specs.map((spec, index) => (
+                <div key={index} className="flex gap-2">
+                  <Input
+                    value={spec.name}
+                    onChange={(e) => handleSpecChange(index, 'name', e.target.value)}
+                    placeholder="Spec name"
+                  />
+                  <Input
+                    value={spec.value}
+                    onChange={(e) => handleSpecChange(index, 'value', e.target.value)}
+                    placeholder="Spec value"
+                  />
                   <Button
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="mt-2 w-full"
-                    onClick={handleAddSpec}
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => removeSpec(index)}
                   >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Specification
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={addSpec}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Specification
+              </Button>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex justify-end space-x-4">
-        <Button type="button" variant="outline" onClick={() => router.push("/admin/products")} disabled={loading}>
+      <div className="flex justify-end gap-4">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => router.back()}
+        >
           Cancel
         </Button>
         <Button type="submit" disabled={loading}>
-          {loading ? "Saving..." : product ? "Update Product" : "Create Product"}
+          {loading ? 'Saving...' : product?.id ? 'Update Product' : 'Create Product'}
         </Button>
       </div>
     </form>

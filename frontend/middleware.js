@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from './lib/auth';
+import { authService } from './lib/auth-service';
 
 // Paths that require authentication
 const protectedPaths = [
   '/admin',
   '/api/admin',
+  '/profile',
+  '/orders',
 ];
 
 // Paths that are only accessible to admins
@@ -49,9 +51,9 @@ export async function middleware(request) {
     }
     
     // Verify the token
-    const decoded = verifyToken(token);
+    const user = await authService.getUserFromToken(token);
     
-    if (!decoded) {
+    if (!user) {
       // Redirect to login if token is invalid
       const url = new URL('/auth/login', request.url);
       url.searchParams.set('callbackUrl', encodeURI(request.url));
@@ -61,15 +63,29 @@ export async function middleware(request) {
     // Check if the path is admin only
     const isAdminOnlyPath = adminOnlyPaths.some(path => pathname.startsWith(path));
     
-    if (isAdminOnlyPath && decoded.role !== 'ADMIN') {
+    if (isAdminOnlyPath && user.role !== 'ADMIN') {
       // Redirect to home if user is not an admin
       return NextResponse.redirect(new URL('/', request.url));
+    }
+
+    // Add user info to request headers for API routes
+    if (pathname.startsWith('/api/')) {
+      const requestHeaders = new Headers(request.headers);
+      requestHeaders.set('x-user-id', user.id);
+      requestHeaders.set('x-user-role', user.role);
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      });
     }
   }
   
   return NextResponse.next();
 }
 
+// Configure which paths the middleware should run on
 export const config = {
   matcher: [
     /*
@@ -77,8 +93,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public (public files)
+     * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 };

@@ -5,85 +5,85 @@ import ProductCard from "@/components/product-card"
 import { Button } from "@/components/ui/button"
 
 // Sample featured products data - in a real app, this would come from an API
-const featuredProducts = [
+export const featuredProducts = [
   {
-    id: "brake-pads-premium",
-    name: "Premium Ceramic Brake Pads",
-    price: 12499,
-    image: "/featured/pad.jpeg",
-    category: "Brakes",
+    id: "diamond-ring-elegance",
+    name: "Diamond Elegance Ring",
+    price: 1499,
+    image: "/featured/ring1.jpg",
+    category: "Rings",
     rating: 4.8,
-    description: "Experience unmatched stopping power with our premium ceramic brake pads. Engineered for both daily drivers and performance enthusiasts, these pads deliver exceptional braking with minimal noise and dust.",
+    description: "A stunning diamond ring featuring a brilliant cut center stone surrounded by delicate pavé diamonds. Perfect for engagements or special occasions.",
     features: [
-      "Advanced ceramic compound for whisper-quiet braking",
-      "Precision-cut chamfers prevent brake squeal",
-      "Premium shims for maximum noise reduction",
+      "18K white gold setting",
+      "0.5 carat center diamond",
+      "Pavé diamond band",
     ],
     inStock: true,
     specs: {
-      material: "Ceramic Composite",
-      position: "Front & Rear Available",
-      warranty: "Limited Lifetime",
+      material: "18K White Gold",
+      stone: "Diamond",
+      size: "Available in sizes 4-9",
     }
   },
   {
-    id: "oil-filter-pro",
-    name: "Pro-Series Oil Filter Elite",
+    id: "pearl-necklace-classic",
+    name: "Classic Pearl Necklace",
     price: 3499,
-    image: "/featured/filter.jpeg",
-    category: "Engine",
+    image: "/featured/necklace1.jpg",
+    category: "Necklaces",
     rating: 4.6,
-    description: "Protect your engine with our elite oil filter featuring advanced synthetic media. Designed for extended service intervals, it captures 99.9% of harmful contaminants while maintaining optimal oil flow.",
+    description: "Timeless elegance with this classic pearl necklace featuring perfectly matched freshwater pearls. A versatile piece for any occasion.",
     features: [
-      "Multi-stage filtration with synthetic media",
-      "Heavy-duty anti-drainback valve",
-      "High-capacity debris retention",
+      "Freshwater pearls",
+      "14K gold clasp",
+      "Adjustable length",
     ],
     inStock: true,
     specs: {
-      filterMedia: "Synthetic Blend",
-      threadSize: "3/4-16 UNF",
-      capacity: "15,000 miles",
+      pearls: "Freshwater",
+      length: "16-18 inches",
+      clasp: "14K Gold",
     }
   },
   {
-    id: "led-headlight-kit",
-    name: "Ultra Vision Pro LED System",
-    price: 18999,
-    image: "/featured/LED.jpeg",
-    category: "Lighting",
+    id: "sapphire-earrings-set",
+    name: "Sapphire Stud Earrings",
+    price: 999,
+    image: "/featured/earrings1.jpg",
+    category: "Earrings",
     rating: 4.9,
-    description: "Transform your night driving experience with our cutting-edge LED headlight system. Featuring advanced cooling technology and simple plug-and-play installation, these lights deliver unmatched brightness and clarity.",
+    description: "Exquisite sapphire stud earrings set in 18K gold. These timeless pieces add a touch of sophistication to any outfit.",
     features: [
-      "Crystal-clear 6000K pure white output",
-      "Advanced heat dissipation design",
-      "Waterproof and dustproof housing",
+      "Natural blue sapphires",
+      "18K gold setting",
+      "Secure screw-back design",
     ],
     inStock: true,
     specs: {
-      brightness: "12,000 lumens/pair",
-      temperature: "6000K Pure White",
-      lifespan: "50,000+ hours",
+      stone: "Natural Sapphire",
+      setting: "18K Gold",
+      weight: "0.75 carats total",
     }
   },
   {
-    id: "alloy-wheel-set",
-    name: "Forged Performance Wheel Set",
-    price: 84999,
-    image: "/featured/wheel.jpeg",
-    category: "Wheels",
+    id: "gold-bracelet-stack",
+    name: "Gold Bangle Stack",
+    price: 1999,
+    image: "/featured/bracelet1.jpg",
+    category: "Bracelets",
     rating: 4.7,
-    description: "Elevate your vehicle's performance and style with our lightweight forged alloy wheels. Each wheel is precision-engineered using advanced flow-forming technology, offering the perfect balance of strength and weight reduction.",
+    description: "A set of three elegant gold bangles that can be worn together or separately. Each piece features a unique texture and design.",
     features: [
-      "Premium 6061-T6 aluminum construction",
-      "Exclusive dual-tone finish",
-      "Advanced flow-forming technology",
+      "18K yellow gold",
+      "Three-piece set",
+      "Adjustable fit",
     ],
     inStock: true,
     specs: {
-      size: "18\", 19\", 20\" available",
-      weight: "17.8 lbs per wheel",
-      finish: "Gloss Black/Machined",
+      material: "18K Yellow Gold",
+      width: "5mm each",
+      set: "3 pieces",
     }
   },
 ]
@@ -93,8 +93,8 @@ export default function FeaturedProducts() {
     <section className="mx-auto w-full max-w-7xl px-4 py-12">
       <div className="mb-10 flex flex-col items-center justify-between gap-6 md:flex-row">
         <div className="text-center md:text-left">
-          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Featured Products</h2>
-          <p className="mt-2 text-lg text-muted-foreground">Discover our most popular auto parts and accessories</p>
+          <h2 className="text-3xl font-bold tracking-tight md:text-4xl">Featured Collections</h2>
+          <p className="mt-2 text-lg text-muted-foreground">Discover our most exquisite jewelry pieces</p>
         </div>
         <Button asChild variant="outline" className="rounded-full px-6">
           <Link href="/shop" className="gap-2">

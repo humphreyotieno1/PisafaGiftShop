@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import prisma from "@/lib/prisma"
+import { prisma } from "@/lib/prisma"
 import { verifyAuth } from "@/lib/auth"
 import bcrypt from "bcryptjs"
 
@@ -55,11 +55,6 @@ export async function GET(request) {
         role: true,
         createdAt: true,
         updatedAt: true,
-        _count: {
-          select: {
-            orders: true,
-          },
-        },
       },
     })
     
@@ -101,10 +96,14 @@ export async function GET(request) {
 // POST /api/admin/users - Create a new user
 export async function POST(request) {
   try {
-    // Verify admin authentication
-    const { user, error } = await verifyAuth(request)
+    console.log("Starting admin user creation...")
     
-    if (error || user.role !== "ADMIN") {
+    // Verify admin authentication
+    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    console.log("Auth verification result:", { user, error })
+    
+    if (error || user?.role !== "ADMIN") {
+      console.log("Unauthorized access attempt")
       return NextResponse.json(
         { error: "Unauthorized access" },
         { status: 401 }
@@ -113,11 +112,13 @@ export async function POST(request) {
 
     // Parse request body
     const body = await request.json()
+    console.log("Request body:", { ...body, password: "[REDACTED]" })
     
     // Validate required fields
     const requiredFields = ["name", "email", "password", "role"]
     for (const field of requiredFields) {
       if (!body[field]) {
+        console.log(`Missing required field: ${field}`)
         return NextResponse.json(
           { error: `Missing required field: ${field}` },
           { status: 400 }
@@ -129,6 +130,7 @@ export async function POST(request) {
     const existingUser = await prisma.user.findUnique({
       where: { email: body.email },
     })
+    console.log("Existing user check:", existingUser ? "User exists" : "No existing user")
     
     if (existingUser) {
       return NextResponse.json(
@@ -139,8 +141,10 @@ export async function POST(request) {
 
     // Hash the password
     const hashedPassword = await bcrypt.hash(body.password, 10)
+    console.log("Password hashed successfully")
 
     // Create the user in the database
+    console.log("Attempting to create user in database...")
     const newUser = await prisma.user.create({
       data: {
         name: body.name,
@@ -157,8 +161,24 @@ export async function POST(request) {
         updatedAt: true,
       },
     })
+    console.log("User created successfully:", newUser)
 
-    return NextResponse.json({ user: newUser }, { status: 201 })
+    const response = NextResponse.json({ user: newUser }, { status: 201 })
+    
+    // If token was refreshed, set the new token in a cookie
+    if (tokenRefreshed && newToken) {
+      response.cookies.set({
+        name: 'token',
+        value: newToken,
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      })
+    }
+    
+    return response
   } catch (error) {
     console.error("Error creating user:", error)
     return NextResponse.json(
@@ -172,9 +192,9 @@ export async function POST(request) {
 export async function PUT(request, { params }) {
   try {
     // Verify admin authentication
-    const { user, error } = await verifyAuth(request)
+    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
     
-    if (error || user.role !== "ADMIN") {
+    if (error || user?.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized access" },
         { status: 401 }
@@ -233,7 +253,22 @@ export async function PUT(request, { params }) {
       },
     })
 
-    return NextResponse.json({ user: updatedUser })
+    const response = NextResponse.json({ user: updatedUser })
+    
+    // If token was refreshed, set the new token in a cookie
+    if (tokenRefreshed && newToken) {
+      response.cookies.set({
+        name: 'token',
+        value: newToken,
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      })
+    }
+    
+    return response
   } catch (error) {
     console.error("Error updating user:", error)
     return NextResponse.json(
@@ -247,9 +282,9 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     // Verify admin authentication
-    const { user, error } = await verifyAuth(request)
+    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
     
-    if (error || user.role !== "ADMIN") {
+    if (error || user?.role !== "ADMIN") {
       return NextResponse.json(
         { error: "Unauthorized access" },
         { status: 401 }
@@ -257,21 +292,28 @@ export async function DELETE(request, { params }) {
     }
 
     const userId = params.id
-    
-    // Prevent deleting yourself
-    if (userId === user.id) {
-      return NextResponse.json(
-        { error: "Cannot delete your own account" },
-        { status: 400 }
-      )
-    }
-    
+
     // Delete the user from the database
     await prisma.user.delete({
       where: { id: userId },
     })
 
-    return NextResponse.json({ success: true })
+    const response = NextResponse.json({ success: true })
+    
+    // If token was refreshed, set the new token in a cookie
+    if (tokenRefreshed && newToken) {
+      response.cookies.set({
+        name: 'token',
+        value: newToken,
+        httpOnly: true,
+        path: '/',
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      })
+    }
+    
+    return response
   } catch (error) {
     console.error("Error deleting user:", error)
     return NextResponse.json(

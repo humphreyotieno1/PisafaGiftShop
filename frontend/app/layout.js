@@ -13,8 +13,8 @@ import BackToTopButton from "@/components/back-to-top-button"
 const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
-  title: "Victoria Phantom Spares",
-  description: "Quality spare parts for your vehicles",
+  title: "Pisafa Gifts Shop",
+  description: "Elegance that Shines, Beauty that Lasts",
 }
 
 export default function RootLayout({ children }) {

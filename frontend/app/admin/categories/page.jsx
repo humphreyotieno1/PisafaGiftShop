@@ -42,7 +42,7 @@ export default function CategoriesPage() {
   const [editingCategory, setEditingCategory] = useState(null)
   const [formData, setFormData] = useState({
     name: '',
-    description: ''
+    subcategory: ''
   })
 
   useEffect(() => {
@@ -85,7 +85,7 @@ export default function CategoriesPage() {
     e.preventDefault()
     try {
       const url = editingCategory
-        ? `/api/admin/categories/${editingCategory.id}`
+        ? `/api/admin/categories/${editingCategory.name}`
         : '/api/admin/categories'
       
       const method = editingCategory ? 'PUT' : 'POST'
@@ -104,7 +104,7 @@ export default function CategoriesPage() {
       
       await fetchCategories()
       setIsDialogOpen(false)
-      setFormData({ name: '', description: '' })
+      setFormData({ name: '', subcategory: '' })
       setEditingCategory(null)
       
       toast({
@@ -121,9 +121,9 @@ export default function CategoriesPage() {
     }
   }
 
-  const handleDelete = async (categoryId) => {
+  const handleDelete = async (categoryName) => {
     try {
-      const response = await fetch(`/api/admin/categories/${categoryId}`, {
+      const response = await fetch(`/api/admin/categories/${categoryName}`, {
         method: 'DELETE',
       })
       
@@ -150,7 +150,7 @@ export default function CategoriesPage() {
     setEditingCategory(null)
     setFormData({
       name: '',
-      description: ''
+      subcategory: ''
     })
     setIsDialogOpen(true)
   }
@@ -159,14 +159,14 @@ export default function CategoriesPage() {
     setEditingCategory(category)
     setFormData({
       name: category.name,
-      description: category.description,
+      subcategory: category.subcategory,
     })
     setIsDialogOpen(true)
   }
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.description.toLowerCase().includes(searchQuery.toLowerCase())
+    category.subcategory.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleSearch = (e) => {
@@ -226,9 +226,8 @@ export default function CategoriesPage() {
                 <thead>
                   <tr className="bg-muted/50">
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Name</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Description</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Subcategory</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Products</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Created</th>
                     <th className="whitespace-nowrap px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -236,46 +235,34 @@ export default function CategoriesPage() {
                   {loading ? (
                     [...Array(5)].map((_, index) => (
                       <tr key={index} className="border-t">
-                        <td colSpan={5} className="px-4 py-3">
+                        <td colSpan={4} className="px-4 py-3">
                           <div className="h-12 animate-pulse rounded-md bg-muted" />
                         </td>
                       </tr>
                     ))
                   ) : filteredCategories.length === 0 ? (
                     <tr className="border-t">
-                      <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
                         No categories found. Try adjusting your search or add a new category.
                       </td>
                     </tr>
                   ) : (
-                    filteredCategories.map((category, index) => (
-                      <motion.tr
-                        key={category.id}
-                        className="border-t"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.2, delay: index * 0.05 }}
-                      >
-                        <td className="px-4 py-3">
+                    filteredCategories.map((category) => (
+                      <tr key={category.name} className="border-t">
+                        <td className="whitespace-nowrap px-4 py-3">
                           <div className="font-medium">{category.name}</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-muted-foreground">{category.description}</div>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <div className="text-muted-foreground">{category.subcategory}</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm">{category.productCount}</div>
+                        <td className="whitespace-nowrap px-4 py-3">
+                          <div className="text-muted-foreground">0</div>
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-muted-foreground">
-                            {new Date(category.createdAt).toLocaleDateString()}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="whitespace-nowrap px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">
                                 <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Actions</span>
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
@@ -283,9 +270,9 @@ export default function CategoriesPage() {
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(category.id)}
-                                className="text-red-600 focus:text-red-600"
+                              <DropdownMenuItem
+                                className="text-red-500"
+                                onClick={() => handleDelete(category.name)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
@@ -293,7 +280,7 @@ export default function CategoriesPage() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
-                      </motion.tr>
+                      </tr>
                     ))
                   )}
                 </tbody>
@@ -307,42 +294,47 @@ export default function CategoriesPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingCategory ? "Edit Category" : "Add New Category"}</DialogTitle>
+            <DialogTitle>
+              {editingCategory ? 'Edit Category' : 'Add New Category'}
+            </DialogTitle>
             <DialogDescription>
               {editingCategory
-                ? "Update the details for this category."
-                : "Fill in the details to create a new category."}
+                ? 'Update the category details below.'
+                : 'Enter the details for the new category below.'}
             </DialogDescription>
           </DialogHeader>
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="name">Category Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter category name"
-                  required
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Input
-                  id="description"
-                  name="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter category description"
-                />
-              </div>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="name">Category Name</Label>
+              <Input
+                id="name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Enter category name"
+                required
+              />
             </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="subcategory">Subcategory</Label>
+              <Input
+                id="subcategory"
+                name="subcategory"
+                value={formData.subcategory}
+                onChange={handleInputChange}
+                placeholder="Enter subcategory"
+                required
+              />
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">{editingCategory ? "Update" : "Add"}</Button>
+              <Button type="submit">
+                {editingCategory ? 'Update' : 'Create'} Category
+              </Button>
             </DialogFooter>
           </form>
         </DialogContent>

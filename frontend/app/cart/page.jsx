@@ -62,7 +62,7 @@ export default function CartPage() {
 
   if (cartItems.length === 0) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center">
+      <div className="mx-auto max-w-7xl px-4 pt-32 py-16 text-center">
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
           <ShoppingBag className="mx-auto mb-6 h-16 w-16 text-muted-foreground" />
           <h1 className="mb-4 text-2xl font-bold">Your cart is empty</h1>
@@ -76,7 +76,7 @@ export default function CartPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl pt-32 px-4 py-8">
       <h1 className="mb-8 text-3xl font-bold">Your Cart</h1>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">

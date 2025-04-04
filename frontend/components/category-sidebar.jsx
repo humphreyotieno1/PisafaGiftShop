@@ -19,53 +19,93 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 // Sample category data - in a real app, this would come from an API or database
 const categories = [
   {
-    name: "Engine Parts",
-    slug: "engine-parts",
+    name: "Pendant",
+    slug: "pendant",
     subcategories: [
-      { name: "Pistons", slug: "pistons" },
-      { name: "Valves", slug: "valves" },
-      { name: "Gaskets", slug: "gaskets" },
-      { name: "Timing Belts", slug: "timing-belts" },
+      { name: "Gold Pendants", slug: "gold-pendants" },
+      { name: "Silver Pendants", slug: "silver-pendants" },
+      { name: "Diamond Pendants", slug: "diamond-pendants" },
+      { name: "Gemstone Pendants", slug: "gemstone-pendants" },
     ],
   },
   {
-    name: "Body Parts",
-    slug: "body-parts",
+    name: "Earring",
+    slug: "earring",
     subcategories: [
-      { name: "Bumpers", slug: "bumpers" },
-      { name: "Doors", slug: "doors" },
-      { name: "Mirrors", slug: "mirrors" },
-      { name: "Hoods", slug: "hoods" },
+      { name: "Stud Earrings", slug: "stud-earrings" },
+      { name: "Hoop Earrings", slug: "hoop-earrings" },
+      { name: "Drop Earrings", slug: "drop-earrings" },
+      { name: "Dangle Earrings", slug: "dangle-earrings" },
     ],
   },
   {
-    name: "Electrical",
-    slug: "electrical",
+    name: "Necklace",
+    slug: "necklace",
     subcategories: [
-      { name: "Batteries", slug: "batteries" },
-      { name: "Alternators", slug: "alternators" },
-      { name: "Starters", slug: "starters" },
-      { name: "Sensors", slug: "sensors" },
+      { name: "Chain Necklaces", slug: "chain-necklaces" },
+      { name: "Choker Necklaces", slug: "choker-necklaces" },
+      { name: "Statement Necklaces", slug: "statement-necklaces" },
+      { name: "Beaded Necklaces", slug: "beaded-necklaces" },
     ],
   },
   {
-    name: "Wheels & Tires",
-    slug: "wheels-tires",
+    name: "Ring",
+    slug: "ring",
     subcategories: [
-      { name: "Alloy Wheels", slug: "alloy-wheels" },
-      { name: "Steel Wheels", slug: "steel-wheels" },
-      { name: "Summer Tires", slug: "summer-tires" },
-      { name: "Winter Tires", slug: "winter-tires" },
+      { name: "Engagement Rings", slug: "engagement-rings" },
+      { name: "Wedding Rings", slug: "wedding-rings" },
+      { name: "Fashion Rings", slug: "fashion-rings" },
+      { name: "Cocktail Rings", slug: "cocktail-rings" },
     ],
   },
   {
-    name: "Frames",
-    slug: "frames",
+    name: "Bracelet",
+    slug: "bracelet",
     subcategories: [
-      { name: "Seats", slug: "seats" },
-      { name: "Steering Wheels", slug: "steering-wheels" },
-      { name: "Dashboard", slug: "dashboard" },
-      { name: "Exhaust", slug: "exhaust" },
+      { name: "Chain Bracelets", slug: "chain-bracelets" },
+      { name: "Bangle Bracelets", slug: "bangle-bracelets" },
+      { name: "Charm Bracelets", slug: "charm-bracelets" },
+      { name: "Cuff Bracelets", slug: "cuff-bracelets" },
+    ],
+  },
+  {
+    name: "Anklet",
+    slug: "anklet",
+    subcategories: [
+      { name: "Chain Anklets", slug: "chain-anklets" },
+      { name: "Beaded Anklets", slug: "beaded-anklets" },
+      { name: "Charm Anklets", slug: "charm-anklets" },
+      { name: "Bangle Anklets", slug: "bangle-anklets" },
+    ],
+  },
+  {
+    name: "Bangle",
+    slug: "bangle",
+    subcategories: [
+      { name: "Gold Bangles", slug: "gold-bangles" },
+      { name: "Silver Bangles", slug: "silver-bangles" },
+      { name: "Diamond Bangles", slug: "diamond-bangles" },
+      { name: "Stackable Bangles", slug: "stackable-bangles" },
+    ],
+  },
+  {
+    name: "Garment Accessories",
+    slug: "garment-accessories",
+    subcategories: [
+      { name: "Brooches", slug: "brooches" },
+      { name: "Cufflinks", slug: "cufflinks" },
+      { name: "Tie Pins", slug: "tie-pins" },
+      { name: "Scarf Rings", slug: "scarf-rings" },
+    ],
+  },
+  {
+    name: "Watches",
+    slug: "watches",
+    subcategories: [
+      { name: "Luxury Watches", slug: "luxury-watches" },
+      { name: "Smart Watches", slug: "smart-watches" },
+      { name: "Sports Watches", slug: "sports-watches" },
+      { name: "Fashion Watches", slug: "fashion-watches" },
     ],
   },
 ]
@@ -92,7 +132,7 @@ export default function CategorySidebar() {
                         {category.subcategories.map((subcategory) => (
                           <SidebarMenuSubItem key={subcategory.slug}>
                             <SidebarMenuSubButton asChild>
-                              <Link href={`/shop/category/${category.slug}/${subcategory.slug}`}>
+                              <Link href={`/shop?category=${category.slug}&subcategory=${subcategory.slug}`}>
                                 {subcategory.name}
                               </Link>
                             </SidebarMenuSubButton>
