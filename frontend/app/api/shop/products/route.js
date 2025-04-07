@@ -7,12 +7,44 @@ export async function GET(request) {
     // Get query parameters
     const { searchParams } = new URL(request.url)
     const page = parseInt(searchParams.get("page") || "1")
-    const limit = parseInt(searchParams.get("limit") || "12")
-    const category = searchParams.get("category") || ""
-    const subcategory = searchParams.get("subcategory") || ""
-    const search = searchParams.get("search") || ""
+    const limit = parseInt(searchParams.get("limit") || "8")
+    const category = searchParams.get("category")
+    const search = searchParams.get("search")
     const sort = searchParams.get("sort") || "createdAt"
     const order = searchParams.get("order") || "desc"
+
+    // Validate pagination parameters
+    if (isNaN(page) || page < 1) {
+      return NextResponse.json(
+        { error: "Invalid page number" },
+        { status: 400 }
+      )
+    }
+
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: "Invalid limit. Must be between 1 and 100" },
+        { status: 400 }
+      )
+    }
+
+    // Validate sort parameters
+    const allowedSortFields = ["createdAt", "price", "name"]
+    const allowedOrders = ["asc", "desc"]
+
+    if (!allowedSortFields.includes(sort)) {
+      return NextResponse.json(
+        { error: `Invalid sort field. Must be one of: ${allowedSortFields.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
+    if (!allowedOrders.includes(order)) {
+      return NextResponse.json(
+        { error: `Invalid order. Must be one of: ${allowedOrders.join(", ")}` },
+        { status: 400 }
+      )
+    }
 
     // Calculate pagination
     const skip = (page - 1) * limit
@@ -22,9 +54,20 @@ export async function GET(request) {
     
     if (category) {
       try {
-        // First check if the category exists
-        const existingCategory = await prisma.category.findUnique({
-          where: { name: category }
+        // Convert category slug to name (e.g., "auto-parts" to "Auto Parts")
+        const categoryName = category
+          .split("-")
+          .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ")
+
+        // Check if the category exists
+        const existingCategory = await prisma.category.findFirst({
+          where: { 
+            name: {
+              equals: categoryName,
+              mode: "insensitive"
+            }
+          }
         })
         
         if (!existingCategory) {
@@ -34,24 +77,22 @@ export async function GET(request) {
           )
         }
         
-        where.categoryName = category
-      } catch (categoryError) {
-        console.error("Error checking category:", categoryError)
+        where.categoryName = existingCategory.name
+      } catch (error) {
+        console.error("Error checking category:", error)
         return NextResponse.json(
-          { error: "Failed to check category", details: categoryError.message },
+          { error: "Failed to check category", details: error.message },
           { status: 500 }
         )
       }
-    }
-
-    if (subcategory) {
-      where.subcategory = subcategory
     }
     
     if (search) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { description: { contains: search, mode: "insensitive" } },
+        { features: { hasSome: [search] } },
+        { tags: { hasSome: [search] } }
       ]
     }
 
@@ -64,14 +105,25 @@ export async function GET(request) {
           take: limit,
           orderBy: { [sort]: order },
           include: {
-            category: true
+            Category: {
+              select: {
+                name: true
+              }
+            }
           }
         }),
         prisma.product.count({ where })
       ])
 
+      // Format the response
+      const formattedProducts = products.map(product => ({
+        ...product,
+        categoryName: product.Category.name,
+        Category: undefined
+      }))
+
       return NextResponse.json({
-        products,
+        products: formattedProducts,
         pagination: {
           total: totalProducts,
           page,
@@ -79,10 +131,10 @@ export async function GET(request) {
           pages: Math.ceil(totalProducts / limit),
         },
       })
-    } catch (queryError) {
-      console.error("Error querying products:", queryError)
+    } catch (error) {
+      console.error("Error querying products:", error)
       return NextResponse.json(
-        { error: "Failed to query products", details: queryError.message },
+        { error: "Failed to query products", details: error.message },
         { status: 500 }
       )
     }

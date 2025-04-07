@@ -10,9 +10,9 @@ CREATE TABLE "User" (
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "password" TEXT NOT NULL,
-    "role" "Role" NOT NULL DEFAULT 'CUSTOMER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "role" TEXT NOT NULL DEFAULT 'CUSTOMER',
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -23,14 +23,15 @@ CREATE TABLE "Product" (
     "name" TEXT NOT NULL,
     "description" TEXT NOT NULL,
     "price" DOUBLE PRECISION NOT NULL,
-    "image" TEXT NOT NULL,
-    "category" TEXT NOT NULL,
-    "subcategory" TEXT NOT NULL,
-    "features" TEXT[],
-    "specs" JSONB NOT NULL,
-    "stock" INTEGER NOT NULL,
+    "image" TEXT,
+    "stock" INTEGER NOT NULL DEFAULT 0,
+    "inStock" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "categoryName" TEXT NOT NULL,
+    "features" TEXT[] DEFAULT ARRAY[]::TEXT[],
+    "specs" JSONB NOT NULL DEFAULT '[]',
+    "tags" TEXT[] DEFAULT ARRAY[]::TEXT[],
 
     CONSTRAINT "Product_pkey" PRIMARY KEY ("id")
 );
@@ -39,10 +40,10 @@ CREATE TABLE "Product" (
 CREATE TABLE "Order" (
     "id" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "status" "OrderStatus" NOT NULL DEFAULT 'PENDING',
     "total" DOUBLE PRECISION NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
+    "status" TEXT NOT NULL DEFAULT 'PENDING',
 
     CONSTRAINT "Order_pkey" PRIMARY KEY ("id")
 );
@@ -74,31 +75,20 @@ CREATE TABLE "Review" (
 );
 
 -- CreateTable
-CREATE TABLE "Session" (
+CREATE TABLE "Category" (
     "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "token" TEXT NOT NULL,
-    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "name" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Category_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE INDEX "Product_category_idx" ON "Product"("category");
-
--- CreateIndex
-CREATE INDEX "Product_subcategory_idx" ON "Product"("subcategory");
-
--- CreateIndex
-CREATE INDEX "Order_userId_idx" ON "Order"("userId");
-
--- CreateIndex
-CREATE INDEX "Order_status_idx" ON "Order"("status");
+CREATE UNIQUE INDEX "Product_name_key" ON "Product"("name");
 
 -- CreateIndex
 CREATE INDEX "OrderItem_orderId_idx" ON "OrderItem"("orderId");
@@ -113,13 +103,10 @@ CREATE INDEX "Review_userId_idx" ON "Review"("userId");
 CREATE INDEX "Review_productId_idx" ON "Review"("productId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Session_token_key" ON "Session"("token");
+CREATE UNIQUE INDEX "Category_name_key" ON "Category"("name");
 
--- CreateIndex
-CREATE INDEX "Session_userId_idx" ON "Session"("userId");
-
--- CreateIndex
-CREATE INDEX "Session_token_idx" ON "Session"("token");
+-- AddForeignKey
+ALTER TABLE "Product" ADD CONSTRAINT "Product_categoryName_fkey" FOREIGN KEY ("categoryName") REFERENCES "Category"("name") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Order" ADD CONSTRAINT "Order_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -131,10 +118,7 @@ ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_orderId_fkey" FOREIGN KEY ("or
 ALTER TABLE "OrderItem" ADD CONSTRAINT "OrderItem_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Review" ADD CONSTRAINT "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
 ALTER TABLE "Review" ADD CONSTRAINT "Review_productId_fkey" FOREIGN KEY ("productId") REFERENCES "Product"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "Review" ADD CONSTRAINT "Review_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -1,18 +1,14 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { verifyAuth } from "@/lib/auth"
+import { verifyAuth } from "@/lib/auth-service"
 
 // GET /api/admin/categories - Get all categories
 export async function GET(request) {
   try {
-    // Verify admin authentication
-    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    const { isAuthenticated, isAdmin } = await verifyAuth()
     
-    if (error || user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized access" },
-        { status: 401 }
-      )
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     // Get query parameters
@@ -23,6 +19,39 @@ export async function GET(request) {
     const sort = searchParams.get("sort") || "createdAt"
     const order = searchParams.get("order") || "desc"
 
+    // Validate pagination parameters
+    if (isNaN(page) || page < 1) {
+      return NextResponse.json(
+        { error: "Invalid page number" },
+        { status: 400 }
+      )
+    }
+
+    if (isNaN(limit) || limit < 1 || limit > 100) {
+      return NextResponse.json(
+        { error: "Invalid limit. Must be between 1 and 100" },
+        { status: 400 }
+      )
+    }
+
+    // Validate sort parameters
+    const allowedSortFields = ["createdAt", "name", "updatedAt"]
+    const allowedOrders = ["asc", "desc"]
+
+    if (!allowedSortFields.includes(sort)) {
+      return NextResponse.json(
+        { error: `Invalid sort field. Must be one of: ${allowedSortFields.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
+    if (!allowedOrders.includes(order)) {
+      return NextResponse.json(
+        { error: `Invalid order. Must be one of: ${allowedOrders.join(", ")}` },
+        { status: 400 }
+      )
+    }
+
     // Calculate pagination
     const skip = (page - 1) * limit
 
@@ -30,35 +59,33 @@ export async function GET(request) {
     const where = {}
     
     if (search) {
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { subcategory: { contains: search, mode: "insensitive" } },
-      ]
+      where.name = { contains: search, mode: "insensitive" }
     }
 
     // Query the database for categories
-    const categories = await prisma.category.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: { [sort]: order },
-      include: {
-        _count: {
-          select: {
-            products: true
+    const [categories, totalCategories] = await Promise.all([
+      prisma.category.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { [sort]: order },
+        include: {
+          _count: {
+            select: {
+              Product: true
+            }
           }
         }
-      }
-    })
-    
-    const totalCategories = await prisma.category.count({ where })
+      }),
+      prisma.category.count({ where })
+    ])
 
-    const response = NextResponse.json({
+    return NextResponse.json({
       categories: categories.map(category => ({
         id: category.id,
         name: category.name,
-        subcategory: category.subcategory,
-        productCount: category._count.products,
+        productCount: category._count.Product,
+        slug: category.name.toLowerCase().replace(/\s+/g, '-'),
         createdAt: category.createdAt,
         updatedAt: category.updatedAt
       })),
@@ -69,25 +96,10 @@ export async function GET(request) {
         pages: Math.ceil(totalCategories / limit),
       },
     })
-    
-    // If token was refreshed, set the new token in a cookie
-    if (tokenRefreshed && newToken) {
-      response.cookies.set({
-        name: 'token',
-        value: newToken,
-        httpOnly: true,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-      })
-    }
-    
-    return response
   } catch (error) {
     console.error("Error fetching categories:", error)
     return NextResponse.json(
-      { error: "Failed to fetch categories" },
+      { error: `Failed to fetch categories: ${error.message}` },
       { status: 500 }
     )
   }
@@ -96,79 +108,64 @@ export async function GET(request) {
 // POST /api/admin/categories - Create a new category
 export async function POST(request) {
   try {
-    // Verify admin authentication
-    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    const { isAuthenticated, isAdmin } = await verifyAuth()
     
-    if (error || user?.role !== "ADMIN") {
-      return NextResponse.json(
-        { error: "Unauthorized access" },
-        { status: 401 }
-      )
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    // Parse request body
     const body = await request.json()
     
     // Validate required fields
-    const requiredFields = ["name", "subcategory"]
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
-      }
+    if (!body.name?.trim()) {
+      return NextResponse.json(
+        { error: "Category name is required" },
+        { status: 400 }
+      )
     }
+
+    // Format category name
+    const name = body.name.trim()
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
 
     // Check if category already exists
     const existingCategory = await prisma.category.findFirst({
       where: {
-        name: body.name,
-        subcategory: body.subcategory,
-      },
+        name: {
+          equals: name,
+          mode: "insensitive"
+        }
+      }
     })
 
     if (existingCategory) {
       return NextResponse.json(
         { error: "Category already exists" },
-        { status: 400 }
+        { status: 409 }
       )
     }
 
     // Create the category
     const category = await prisma.category.create({
-      data: {
-        name: body.name,
-        subcategory: body.subcategory,
-      },
+      data: { name }
     })
 
-    const response = NextResponse.json({ 
+    return NextResponse.json({ 
       category: {
         id: category.id,
         name: category.name,
-        subcategory: category.subcategory,
+        slug: category.name.toLowerCase().replace(/\s+/g, '-'),
+        productCount: 0,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
       }
     }, { status: 201 })
-    
-    // If token was refreshed, set the new token in a cookie
-    if (tokenRefreshed && newToken) {
-      response.cookies.set({
-        name: 'token',
-        value: newToken,
-        httpOnly: true,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-      })
-    }
-    
-    return response
   } catch (error) {
     console.error("Error creating category:", error)
     return NextResponse.json(
-      { error: "Failed to create category" },
+      { error: "Failed to create category", details: error.message },
       { status: 500 }
     )
   }
@@ -177,65 +174,83 @@ export async function POST(request) {
 // PUT /api/admin/categories/:id - Update a category
 export async function PUT(request, { params }) {
   try {
-    // Verify admin authentication
-    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    const { isAuthenticated, isAdmin } = await verifyAuth()
     
-    if (error || user?.role !== "ADMIN") {
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = params
+    const body = await request.json()
+    
+    if (!id) {
       return NextResponse.json(
-        { error: "Unauthorized access" },
-        { status: 401 }
+        { error: "Category ID is required" },
+        { status: 400 }
       )
     }
 
-    const categoryId = params.id
-    const body = await request.json()
-    
     // Validate required fields
-    const requiredFields = ["name", "subcategory"]
-    for (const field of requiredFields) {
-      if (!body[field]) {
-        return NextResponse.json(
-          { error: `Missing required field: ${field}` },
-          { status: 400 }
-        )
+    if (!body.name?.trim()) {
+      return NextResponse.json(
+        { error: "Category name is required" },
+        { status: 400 }
+      )
+    }
+
+    // Format category name
+    const name = body.name.trim()
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+
+    // Check if another category with the same name exists
+    const existingCategory = await prisma.category.findFirst({
+      where: {
+        name: {
+          equals: name,
+          mode: "insensitive"
+        },
+        NOT: {
+          id
+        }
       }
+    })
+
+    if (existingCategory) {
+      return NextResponse.json(
+        { error: "Category with this name already exists" },
+        { status: 409 }
+      )
     }
     
     // Update the category
     const category = await prisma.category.update({
-      where: { id: categoryId },
-      data: {
-        name: body.name,
-        subcategory: body.subcategory,
-      },
+      where: { id },
+      data: { name }
     })
 
-    const response = NextResponse.json({ 
+    return NextResponse.json({ 
       category: {
         id: category.id,
         name: category.name,
-        subcategory: category.subcategory,
+        slug: category.name.toLowerCase().replace(/\s+/g, '-'),
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
       }
     })
-    
-    // If token was refreshed, set the new token in a cookie
-    if (tokenRefreshed && newToken) {
-      response.cookies.set({
-        name: 'token',
-        value: newToken,
-        httpOnly: true,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-      })
-    }
-    
-    return response
   } catch (error) {
     console.error("Error updating category:", error)
+
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      )
+    }
+
     return NextResponse.json(
-      { error: "Failed to update category" },
+      { error: "Failed to update category", details: error.message },
       { status: 500 }
     )
   }
@@ -244,43 +259,68 @@ export async function PUT(request, { params }) {
 // DELETE /api/admin/categories/:id - Delete a category
 export async function DELETE(request, { params }) {
   try {
-    // Verify admin authentication
-    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request)
+    const { isAuthenticated, isAdmin } = await verifyAuth()
     
-    if (error || user?.role !== "ADMIN") {
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = params
+    
+    if (!id) {
       return NextResponse.json(
-        { error: "Unauthorized access" },
-        { status: 401 }
+        { error: "Category ID is required" },
+        { status: 400 }
       )
     }
 
-    const categoryId = params.id
-    
-    // Delete the category
-    await prisma.category.delete({
-      where: { id: categoryId },
+    // Check if category has associated products
+    const category = await prisma.category.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            Product: true
+          }
+        }
+      }
     })
 
-    const response = NextResponse.json({ success: true })
-    
-    // If token was refreshed, set the new token in a cookie
-    if (tokenRefreshed && newToken) {
-      response.cookies.set({
-        name: 'token',
-        value: newToken,
-        httpOnly: true,
-        path: '/',
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 7, // 1 week
-      })
+    if (!category) {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      )
     }
-    
-    return response
+
+    if (category._count.Product > 0) {
+      return NextResponse.json(
+        { error: "Cannot delete category with associated products" },
+        { status: 400 }
+      )
+    }
+
+    // Delete the category
+    await prisma.category.delete({
+      where: { id }
+    })
+
+    return NextResponse.json({ 
+      success: true,
+      message: "Category deleted successfully"
+    })
   } catch (error) {
     console.error("Error deleting category:", error)
+
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      )
+    }
+
     return NextResponse.json(
-      { error: "Failed to delete category" },
+      { error: "Failed to delete category", details: error.message },
       { status: 500 }
     )
   }
