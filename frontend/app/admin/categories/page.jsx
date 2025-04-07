@@ -86,7 +86,7 @@ export default function CategoriesPage() {
     e.preventDefault()
     try {
       const url = editingCategory
-        ? `/api/admin/categories/${editingCategory.name}`
+        ? `/api/admin/categories/${editingCategory.id}`
         : '/api/admin/categories'
       
       const method = editingCategory ? 'PUT' : 'POST'
@@ -100,7 +100,8 @@ export default function CategoriesPage() {
       })
       
       if (!response.ok) {
-        throw new Error(`Failed to ${editingCategory ? 'update' : 'create'} category`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Failed to ${editingCategory ? 'update' : 'create'} category`)
       }
       
       await fetchCategories()
@@ -122,8 +123,8 @@ export default function CategoriesPage() {
     }
   }
 
-  const handleDelete = async (categoryName) => {
-    setCategoryToDelete(categoryName)
+  const handleDelete = async (categoryId) => {
+    setCategoryToDelete(categoryId)
     setIsDeleteDialogOpen(true)
   }
 
@@ -275,7 +276,7 @@ export default function CategoriesPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-red-500"
-                                onClick={() => handleDelete(category.name)}
+                                onClick={() => handleDelete(category.id)}
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
