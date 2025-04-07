@@ -43,6 +43,8 @@ export default function CategoriesPage() {
   const [formData, setFormData] = useState({
     name: ''
   })
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState(null)
 
   useEffect(() => {
     if (user && !isAdmin) {
@@ -121,13 +123,19 @@ export default function CategoriesPage() {
   }
 
   const handleDelete = async (categoryName) => {
+    setCategoryToDelete(categoryName)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
     try {
-      const response = await fetch(`/api/admin/categories/${categoryName}`, {
+      const response = await fetch(`/api/admin/categories/${categoryToDelete}`, {
         method: 'DELETE',
       })
       
       if (!response.ok) {
-        throw new Error('Failed to delete category')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete category')
       }
       
       await fetchCategories()
@@ -142,6 +150,9 @@ export default function CategoriesPage() {
         description: formatErrorMessage(error),
         variant: 'destructive',
       })
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setCategoryToDelete(null)
     }
   }
 
@@ -317,6 +328,40 @@ export default function CategoriesPage() {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Category</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this category? This action cannot be undone.
+              {categoryToDelete && (
+                <p className="mt-2 font-medium text-red-600">
+                  Category: {categoryToDelete}
+                </p>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteDialogOpen(false)
+                setCategoryToDelete(null)
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteConfirm}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

@@ -130,9 +130,26 @@ export default function ProductsPage() {
     setIsDialogOpen(true)
   }
 
-  const handleEdit = (product) => {
-    setEditingProduct(product)
-    setIsDialogOpen(true)
+  const handleEdit = async (product) => {
+    try {
+      // Fetch the latest product data to ensure we have the most up-to-date information
+      const response = await fetch(`/api/admin/products/${product.id}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch product details')
+      }
+      
+      const updatedProduct = await response.json()
+      setEditingProduct(updatedProduct)
+      setIsDialogOpen(true)
+    } catch (error) {
+      console.error('Error fetching product details:', error)
+      toast({
+        title: 'Error',
+        description: formatErrorMessage(error),
+        variant: 'destructive',
+      })
+    }
   }
 
   const handleSearch = (e) => {

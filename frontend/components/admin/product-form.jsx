@@ -40,14 +40,16 @@ export default function ProductForm({ categories, product, onSuccess }) {
   const [formData, setFormData] = useState({
     name: product?.name || '',
     description: product?.description || '',
-    price: product?.price?.toString() || '',
-    imageUrl: product?.imageUrl || '',
-    imageData: product?.imageData || '',
+    price: product?.price || '',
+    stock: product?.stock || '',
+    inStock: product?.inStock ?? true,
     categoryId: product?.categoryId || '',
-    features: product?.features || [''],
-    specs: product?.specs || [{ name: '', value: '' }],
-    stock: product?.stock?.toString() || '0',
-    inStock: product?.inStock !== undefined ? product.inStock : (product?.stock > 0 || false),
+    imageUrl: product?.image || '',
+    imageData: null,
+    features: product?.features || [],
+    specs: Array.isArray(product?.specs) ? product.specs : 
+           typeof product?.specs === 'string' ? JSON.parse(product.specs) : 
+           [],
     tags: product?.tags || []
   })
 
@@ -211,11 +213,13 @@ export default function ProductForm({ categories, product, onSuccess }) {
         image: formData.imageData || formData.imageUrl || null
       }
 
-      // Log the data being sent to the API for debugging
-      console.log('Sending product data:', JSON.stringify(productData, null, 2))
+      // If updating, include the product ID
+      if (product?.id) {
+        productData.id = product.id
+      }
 
-      const response = await fetch(`/api/admin/products${product ? `/${product.id}` : ''}`, {
-        method: product ? 'PUT' : 'POST',
+      const response = await fetch(`/api/admin/products${product?.id ? `/${product.id}` : ''}`, {
+        method: product?.id ? 'PUT' : 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
@@ -227,13 +231,15 @@ export default function ProductForm({ categories, product, onSuccess }) {
         throw new Error(errorData.error || 'Failed to save product')
       }
 
+      const savedProduct = await response.json()
+
       toast({
-        title: `Product ${product ? 'Updated' : 'Created'}`,
-        description: `Product has been successfully ${product ? 'updated' : 'created'}.`,
+        title: `Product ${product?.id ? 'Updated' : 'Created'}`,
+        description: `Product has been successfully ${product?.id ? 'updated' : 'created'}.`,
       })
       
       if (onSuccess) {
-        onSuccess()
+        onSuccess(savedProduct)
       } else {
         router.push('/admin/products')
         router.refresh()
@@ -279,7 +285,10 @@ export default function ProductForm({ categories, product, onSuccess }) {
 
   const handleSpecChange = (index, field, value) => {
     setFormData(prev => {
-      const newSpecs = [...prev.specs]
+      const newSpecs = Array.isArray(prev.specs) ? [...prev.specs] : []
+      if (!newSpecs[index]) {
+        newSpecs[index] = { name: '', value: '' }
+      }
       newSpecs[index] = { ...newSpecs[index], [field]: value }
       return { ...prev, specs: newSpecs }
     })
@@ -288,14 +297,14 @@ export default function ProductForm({ categories, product, onSuccess }) {
   const addSpec = () => {
     setFormData(prev => ({
       ...prev,
-      specs: [...prev.specs, { name: '', value: '' }]
+      specs: Array.isArray(prev.specs) ? [...prev.specs, { name: '', value: '' }] : [{ name: '', value: '' }]
     }))
   }
 
   const removeSpec = (index) => {
     setFormData(prev => ({
       ...prev,
-      specs: prev.specs.filter((_, i) => i !== index)
+      specs: Array.isArray(prev.specs) ? prev.specs.filter((_, i) => i !== index) : []
     }))
   }
 
