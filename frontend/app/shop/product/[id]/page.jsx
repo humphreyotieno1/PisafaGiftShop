@@ -10,9 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
-import { generateProducts } from "@/lib/dummy-data"
 import ProductCard from "@/components/product-card"
-import { featuredProducts } from "@/components/featured-products"
 
 export default function ProductPage() {
   const params = useParams()
@@ -24,32 +22,49 @@ export default function ProductPage() {
   const [relatedProducts, setRelatedProducts] = useState([])
 
   useEffect(() => {
-    // First check if it's a featured product
-    const featuredProduct = featuredProducts.find(p => p.id === params.id)
-    
-    if (featuredProduct) {
-      setProduct(featuredProduct)
-      // Get related products from the same category
-      const related = featuredProducts.filter(p => p.category === featuredProduct.category && p.id !== params.id).slice(0, 4)
-      setRelatedProducts(related)
-    } else {
-      // If not a featured product, check regular products
-      const productId = Number.parseInt(params.id)
-      if (!isNaN(productId)) { // Only proceed if the ID is a valid number
-        const allProducts = generateProducts(100)
-        const foundProduct = allProducts.find((p) => p.id === productId)
-
-        if (foundProduct) {
-          setProduct(foundProduct)
-          // Get related products from the same category
-          const related = allProducts.filter((p) => p.category === foundProduct.category && p.id !== productId).slice(0, 4)
-          setRelatedProducts(related)
+    const fetchProduct = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/shop/products/${params.id}`)
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch product')
         }
+        
+        const data = await response.json()
+        
+        // Parse specs if it's a string
+        if (data.specs && typeof data.specs === 'string') {
+          try {
+            data.specs = JSON.parse(data.specs)
+          } catch (e) {
+            console.error('Error parsing specs:', e)
+            data.specs = []
+          }
+        }
+        
+        setProduct(data)
+
+        // Fetch related products from the same category
+        const relatedResponse = await fetch(`/api/shop/products?category=${data.categoryName.toLowerCase().replace(/\s+/g, '-')}&limit=4`)
+        if (relatedResponse.ok) {
+          const relatedData = await relatedResponse.json()
+          setRelatedProducts(relatedData.products.filter(p => p.id !== data.id))
+        }
+      } catch (error) {
+        console.error('Error fetching product:', error)
+        toast({
+          title: 'Error',
+          description: 'Failed to load product. Please try again.',
+          variant: 'destructive',
+        })
+      } finally {
+        setLoading(false)
       }
     }
 
-    setLoading(false)
-  }, [params.id])
+    fetchProduct()
+  }, [params.id, toast])
 
   const handleAddToCart = () => {
     if (product) {
@@ -74,13 +89,17 @@ export default function ProductPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 pt-32">
-        <div className="flex flex-col gap-8 md:flex-row">
-          <div className="h-[400px] w-full animate-pulse rounded-lg bg-muted md:w-1/2" />
-          <div className="flex w-full flex-col md:w-1/2">
-            <div className="h-8 w-3/4 animate-pulse rounded bg-muted" />
-            <div className="mt-4 h-6 w-1/4 animate-pulse rounded bg-muted" />
-            <div className="mt-8 h-24 w-full animate-pulse rounded bg-muted" />
-            <div className="mt-8 h-10 w-1/3 animate-pulse rounded bg-muted" />
+        <div className="animate-pulse space-y-8">
+          <div className="h-4 w-1/4 bg-muted rounded" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="aspect-square bg-muted rounded-lg" />
+            <div className="space-y-4">
+              <div className="h-8 w-3/4 bg-muted rounded" />
+              <div className="h-4 w-1/4 bg-muted rounded" />
+              <div className="h-6 w-1/4 bg-muted rounded" />
+              <div className="h-4 w-full bg-muted rounded" />
+              <div className="h-10 w-1/3 bg-muted rounded" />
+            </div>
           </div>
         </div>
       </div>
@@ -90,10 +109,8 @@ export default function ProductPage() {
   if (!product) {
     return (
       <div className="mx-auto max-w-7xl px-4 py-8 pt-32 text-center">
-        <h1 className="mb-4 text-2xl font-bold">Product Not Found</h1>
-        <p className="mb-8 text-muted-foreground">
-          The product you are looking for does not exist or has been removed.
-        </p>
+        <h1 className="text-2xl font-bold mb-4">Product Not Found</h1>
+        <p className="text-muted-foreground mb-6">The product you're looking for doesn't exist or has been removed.</p>
         <Button asChild>
           <Link href="/shop">Back to Shop</Link>
         </Button>
@@ -124,10 +141,10 @@ export default function ProductPage() {
           </li>
           <li>
             <Link
-              href={`/shop/category/${product.category.toLowerCase().replace(/\s+/g, "-")}`}
+              href={`/shop?category=${product.categoryName.toLowerCase().replace(/\s+/g, "-")}`}
               className="hover:text-primary"
             >
-              {product.category}
+              {product.categoryName}
             </Link>
           </li>
           <li className="mx-2">
@@ -138,32 +155,26 @@ export default function ProductPage() {
       </nav>
 
       {/* Product Details */}
-      <div className="flex flex-col gap-8 md:flex-row">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Product Image */}
-        <motion.div
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="w-full md:w-1/2"
-        >
-          <div className="relative aspect-square overflow-hidden rounded-lg border bg-background">
+        <div className="aspect-square relative rounded-lg overflow-hidden bg-muted">
+          {product.image ? (
             <Image
-              src={product.image || "/placeholder.svg"}
+              src={product.image}
               alt={product.name}
               fill
-              className="object-contain p-4"
-              priority
+              className="object-cover"
+              sizes="(max-width: 768px) 100vw, 50vw"
             />
-          </div>
-        </motion.div>
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+              No image available
+            </div>
+          )}
+        </div>
 
         {/* Product Info */}
-        <motion.div
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
-          className="flex w-full flex-col md:w-1/2"
-        >
+        <div>
           <h1 className="text-3xl font-bold">{product.name}</h1>
 
           <div className="mt-2 flex items-center">
@@ -172,12 +183,12 @@ export default function ProductPage() {
                 <Star
                   key={i}
                   className={`h-4 w-4 ${
-                    i < Math.floor(product.rating) ? "fill-yellow-400 text-yellow-400" : "fill-muted text-muted"
+                    i < Math.floor(product.rating || 0) ? "fill-yellow-400 text-yellow-400" : "fill-muted text-muted"
                   }`}
                 />
               ))}
             </div>
-            <span className="ml-2 text-sm text-muted-foreground">{product.rating} out of 5</span>
+            <span className="ml-2 text-sm text-muted-foreground">{product.rating || 0} out of 5</span>
           </div>
 
           <div className="mt-6 flex items-baseline gap-2">
@@ -185,13 +196,6 @@ export default function ProductPage() {
               <span className="text-lg font-normal text-muted-foreground">Ksh</span>
               {" "}{product.price.toLocaleString()}
             </div>
-            <span className="text-sm text-muted-foreground">
-              {product.category === "Rings" ? "/piece" :
-               product.category === "Necklaces" ? "/piece" :
-               product.category === "Earrings" ? "/pair" :
-               product.category === "Bracelets" ? "/piece" :
-               "/piece"}
-            </span>
           </div>
 
           <div className="mt-6">
@@ -199,130 +203,74 @@ export default function ProductPage() {
           </div>
 
           {/* Quantity Selector */}
-          <div className="mt-8 flex items-center gap-4">
-            <div className="flex items-center rounded-lg border">
-              <button
+          <div className="mt-6 flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={decreaseQuantity}
-                className="flex h-10 w-10 items-center justify-center rounded-l-lg border-r text-muted-foreground hover:bg-muted"
-                aria-label="Decrease quantity"
+                disabled={quantity <= 1}
               >
                 <Minus className="h-4 w-4" />
-              </button>
-              <span className="flex h-10 w-12 items-center justify-center border-x text-center">
-                {quantity}
-              </span>
-              <button
+              </Button>
+              <span className="w-8 text-center">{quantity}</span>
+              <Button
+                variant="outline"
+                size="icon"
                 onClick={increaseQuantity}
-                className="flex h-10 w-10 items-center justify-center rounded-r-lg border-l text-muted-foreground hover:bg-muted"
-                aria-label="Increase quantity"
               >
                 <Plus className="h-4 w-4" />
-              </button>
+              </Button>
             </div>
             <Button
-              onClick={handleAddToCart}
-              size="lg"
               className="flex-1"
+              onClick={handleAddToCart}
               disabled={!product.inStock}
             >
               <ShoppingCart className="mr-2 h-4 w-4" />
-              Add to Cart
+              {product.inStock ? "Add to Cart" : "Out of Stock"}
             </Button>
           </div>
 
-          {/* Features */}
-          <div className="mt-8 grid grid-cols-1 gap-4 rounded-lg border p-4 sm:grid-cols-3">
-            <div className="flex flex-col items-center text-center">
-              <Truck className="mb-2 h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Free Shipping</span>
-              <span className="text-xs text-muted-foreground">On orders over Ksh 10,000</span>
+          {/* Product Features */}
+          {product.features && product.features.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold mb-4">Features</h2>
+              <ul className="space-y-2">
+                {product.features.map((feature, index) => (
+                  <li key={index} className="flex items-center gap-2">
+                    <div className="h-1.5 w-1.5 rounded-full bg-primary" />
+                    <span className="text-muted-foreground">{feature}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="flex flex-col items-center text-center">
-              <Shield className="mb-2 h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Warranty</span>
-              <span className="text-xs text-muted-foreground">Lifetime warranty on craftsmanship</span>
-            </div>
-            <div className="flex flex-col items-center text-center">
-              <RotateCcw className="mb-2 h-6 w-6 text-primary" />
-              <span className="text-sm font-medium">Easy Returns</span>
-              <span className="text-xs text-muted-foreground">30-day money back</span>
-            </div>
-          </div>
-        </motion.div>
-      </div>
+          )}
 
-      {/* Product Tabs */}
-      <div className="mt-16">
-        <Tabs defaultValue="description">
-          <TabsList className="w-full justify-start">
-            <TabsTrigger value="description">Description</TabsTrigger>
-            <TabsTrigger value="specifications">Specifications</TabsTrigger>
-            <TabsTrigger value="shipping">Shipping & Returns</TabsTrigger>
-          </TabsList>
-          <TabsContent value="description" className="mt-6">
-            <div className="prose max-w-none">
-              <p>{product.description}</p>
-              {product.features && product.features.length > 0 && (
-                <>
-                  <h3>Key Features</h3>
-                  <ul>
-                    {product.features.map((feature, index) => (
-                      <li key={index}>{feature}</li>
-                    ))}
-                  </ul>
-                </>
-              )}
+          {/* Product Specifications */}
+          {product.specs && Array.isArray(product.specs) && product.specs.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold mb-4">Specifications</h2>
+              <div className="grid grid-cols-2 gap-4">
+                {product.specs.map((spec, index) => (
+                  <div key={index}>
+                    <p className="text-sm text-muted-foreground">{spec.name}</p>
+                    <p className="font-medium">{spec.value}</p>
+                  </div>
+                ))}
+              </div>
             </div>
-          </TabsContent>
-          <TabsContent value="specifications" className="mt-6">
-            <div className="overflow-hidden rounded-lg border">
-              <table className="w-full text-sm">
-                <tbody>
-                  {Object.entries(product.specs || {}).map(([key, value]) => (
-                    <tr key={key} className="border-b">
-                      <th className="bg-muted px-4 py-2 text-left font-medium capitalize">
-                        {key.replace(/([A-Z])/g, ' $1').trim()}
-                      </th>
-                      <td className="px-4 py-2">{value}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </TabsContent>
-          <TabsContent value="shipping" className="mt-6">
-            <div className="prose max-w-none">
-              <h3>Shipping Information</h3>
-              <p>
-                We offer free shipping on all orders over Ksh 10,000. Standard shipping typically takes 3-5 business days,
-                depending on your location. Express shipping options are available at checkout for an additional fee.
-              </p>
-
-              <h3>Return Policy</h3>
-              <p>
-                We accept returns within 30 days of delivery for a full refund or exchange. The product must be in its
-                original condition and packaging. Please note that shipping costs for returns are the responsibility of
-                the customer unless the return is due to our error or a defective product.
-              </p>
-
-              <h3>Warranty</h3>
-              <p>
-                All our jewelry comes with a lifetime warranty on craftsmanship. This warranty covers any manufacturing
-                defects but does not cover damage due to improper use, accidents, or normal wear and tear. Please contact
-                our customer service team for warranty claims.
-              </p>
-            </div>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
 
       {/* Related Products */}
       {relatedProducts.length > 0 && (
         <div className="mt-16">
-          <h2 className="mb-6 text-2xl font-bold">Related Products</h2>
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
-            {relatedProducts.map((relatedProduct) => (
-              <ProductCard key={relatedProduct.id} product={relatedProduct} />
+          <h2 className="text-2xl font-bold mb-8">You May Also Like</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {relatedProducts.map((product) => (
+              <ProductCard key={product.id} product={product} />
             ))}
           </div>
         </div>
