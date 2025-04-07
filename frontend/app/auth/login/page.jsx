@@ -63,7 +63,7 @@ function LoginForm() {
     setIsLoading(true)
     try {
       const result = await login(data.email, data.password)
-      if (result) {
+      if (result.success) {
         toast({
           title: "Login successful",
           description: "Welcome back!",
@@ -78,6 +78,12 @@ function LoginForm() {
         } else {
           router.push("/")
         }
+      } else {
+        toast({
+          title: "Login failed",
+          description: result.error || "Invalid email or password",
+          variant: "destructive",
+        })
       }
     } catch (error) {
       toast({

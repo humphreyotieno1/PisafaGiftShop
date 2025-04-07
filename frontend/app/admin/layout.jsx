@@ -33,7 +33,7 @@ import {
 import { useToast } from "@/components/ui/use-toast"
 
 export default function AdminLayout({ children }) {
-  const { isAuthenticated, isAdmin, loading, checkAuth } = useAuth()
+  const { isAuthenticated, isAdmin, loading, checkAuth, logout, user } = useAuth()
   const router = useRouter()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)

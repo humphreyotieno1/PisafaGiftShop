@@ -22,9 +22,9 @@ export function AuthProvider({ children }) {
 
       if (response.ok) {
         const data = await response.json()
-        setUser(data)
+        setUser(data.user)
         setIsAuthenticated(true)
-        setIsAdmin(data.role === 'ADMIN')
+        setIsAdmin(data.user.role === 'ADMIN')
       } else {
         setUser(null)
         setIsAuthenticated(false)
@@ -40,8 +40,16 @@ export function AuthProvider({ children }) {
     }
   }
 
+  // Check auth status on mount and when window regains focus
   useEffect(() => {
     checkAuth()
+    
+    const handleFocus = () => {
+      checkAuth()
+    }
+    
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [])
 
   const login = async (email, password) => {
@@ -55,24 +63,17 @@ export function AuthProvider({ children }) {
 
       if (response.ok) {
         const data = await response.json()
-        setUser(data)
+        setUser(data.user)
         setIsAuthenticated(true)
-        setIsAdmin(data.role === 'ADMIN')
-        toast({
-          title: "Login Successful",
-          description: "Welcome back!",
-        })
-        return true
+        setIsAdmin(data.user.role === 'ADMIN')
+        return { success: true }
       } else {
-        throw new Error('Login failed')
+        const error = await response.json()
+        return { success: false, error: error.error || 'Login failed' }
       }
     } catch (error) {
-      toast({
-        title: "Login Failed",
-        description: "Invalid email or password",
-        variant: "destructive",
-      })
-      return false
+      console.error('Login failed:', error)
+      return { success: false, error: error.message || 'Login failed' }
     }
   }
 
@@ -92,6 +93,28 @@ export function AuthProvider({ children }) {
     }
   }
 
+  const registerUser = async (email, password, name, role) => {
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password, name, role }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return { success: true, data }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.error || 'Registration failed' }
+      }
+    } catch (error) {
+      console.error('Registration failed:', error)
+      return { success: false, error: error.message || 'Registration failed' }
+    }
+  }
+
   return (
     <AuthContext.Provider
       value={{
@@ -102,6 +125,7 @@ export function AuthProvider({ children }) {
         login,
         logout,
         checkAuth,
+        register: registerUser,
       }}
     >
       {children}

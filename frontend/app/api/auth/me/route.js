@@ -1,40 +1,37 @@
 import { NextResponse } from 'next/server';
-import { getToken } from '@/lib/auth';
+import { verifyAuth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
-    const token = await getToken(request);
+    const { user, error, newToken, tokenRefreshed } = await verifyAuth(request);
     
-    if (!token) {
+    if (error || !user) {
       return NextResponse.json(
-        { error: 'No token provided' },
+        { error: error || 'No token provided' },
         { status: 401 }
       );
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: token.userId },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        role: true,
-        createdAt: true,
-        updatedAt: true
-      }
-    });
+    // Create response with user data
+    const response = NextResponse.json({ user });
 
-    if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 401 }
-      );
+    // If token was refreshed, set the new token in the response
+    if (tokenRefreshed && newToken) {
+      response.cookies.set({
+        name: 'token',
+        value: newToken,
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 7, // 1 week
+      });
     }
 
-    return NextResponse.json({ user, token: token.token });
+    return response;
   } catch (error) {
     console.error('[Auth/Me] Error:', error);
     return NextResponse.json(
