@@ -41,8 +41,7 @@ export default function CategoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
   const [formData, setFormData] = useState({
-    name: '',
-    subcategory: ''
+    name: ''
   })
 
   useEffect(() => {
@@ -104,7 +103,7 @@ export default function CategoriesPage() {
       
       await fetchCategories()
       setIsDialogOpen(false)
-      setFormData({ name: '', subcategory: '' })
+      setFormData({ name: '' })
       setEditingCategory(null)
       
       toast({
@@ -149,8 +148,7 @@ export default function CategoriesPage() {
   const handleAddCategory = () => {
     setEditingCategory(null)
     setFormData({
-      name: '',
-      subcategory: ''
+      name: ''
     })
     setIsDialogOpen(true)
   }
@@ -158,15 +156,13 @@ export default function CategoriesPage() {
   const handleEdit = (category) => {
     setEditingCategory(category)
     setFormData({
-      name: category.name,
-      subcategory: category.subcategory,
+      name: category.name
     })
     setIsDialogOpen(true)
   }
 
   const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    category.subcategory.toLowerCase().includes(searchQuery.toLowerCase())
+    category.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   const handleSearch = (e) => {
@@ -226,7 +222,6 @@ export default function CategoriesPage() {
                 <thead>
                   <tr className="bg-muted/50">
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Name</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Subcategory</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Products</th>
                     <th className="whitespace-nowrap px-4 py-3 text-right font-medium">Actions</th>
                   </tr>
@@ -235,14 +230,14 @@ export default function CategoriesPage() {
                   {loading ? (
                     [...Array(5)].map((_, index) => (
                       <tr key={index} className="border-t">
-                        <td colSpan={4} className="px-4 py-3">
+                        <td colSpan={3} className="px-4 py-3">
                           <div className="h-12 animate-pulse rounded-md bg-muted" />
                         </td>
                       </tr>
                     ))
                   ) : filteredCategories.length === 0 ? (
                     <tr className="border-t">
-                      <td colSpan={4} className="px-4 py-8 text-center text-muted-foreground">
+                      <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
                         No categories found. Try adjusting your search or add a new category.
                       </td>
                     </tr>
@@ -253,10 +248,7 @@ export default function CategoriesPage() {
                           <div className="font-medium">{category.name}</div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3">
-                          <div className="text-muted-foreground">{category.subcategory}</div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <div className="text-muted-foreground">0</div>
+                          <div className="text-muted-foreground">{category.productCount || 0}</div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-right">
                           <DropdownMenu>
@@ -312,18 +304,6 @@ export default function CategoriesPage() {
                 value={formData.name}
                 onChange={handleInputChange}
                 placeholder="Enter category name"
-                required
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="subcategory">Subcategory</Label>
-              <Input
-                id="subcategory"
-                name="subcategory"
-                value={formData.subcategory}
-                onChange={handleInputChange}
-                placeholder="Enter subcategory"
                 required
               />
             </div>

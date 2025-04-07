@@ -144,8 +144,7 @@ export default function ProductsPage() {
     return (
       product.name.toLowerCase().includes(searchLower) ||
       product.description.toLowerCase().includes(searchLower) ||
-      (product.category?.name?.toLowerCase() || '').includes(searchLower) ||
-      (product.subcategory?.toLowerCase() || '').includes(searchLower)
+      (product.categoryName?.toLowerCase() || '').includes(searchLower)
     )
   }) || []
 
@@ -227,11 +226,7 @@ export default function ProductsPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm text-gray-500">Category</p>
-                    <p>{product.category?.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-gray-500">Subcategory</p>
-                    <p>{product.subcategory}</p>
+                    <p>{product.categoryName || 'Uncategorized'}</p>
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Price</p>
@@ -240,8 +235,12 @@ export default function ProductsPage() {
                   <div>
                     <p className="text-sm text-gray-500">Stock</p>
                     <p>{product.stock}</p>
-              </div>
-            </div>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Status</p>
+                    <p>{product.inStock ? 'In Stock' : 'Out of Stock'}</p>
+                  </div>
+                </div>
                 {product.image && (
                   <div className="mt-4">
                     <img
