@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
-import { Minus, Plus, Trash2, Upload, AlertCircle, CheckCircle2 } from "lucide-react"
+import { Minus, Plus, Trash2, Upload, AlertCircle, CheckCircle2, Menu } from "lucide-react"
 import {
   Select,
   SelectContent,
@@ -21,6 +21,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 export default function ProductForm({ categories, product, onSuccess }) {
   const router = useRouter()
@@ -343,25 +350,66 @@ export default function ProductForm({ categories, product, onSuccess }) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-6xl mx-auto px-4 sm:px-6">
+    <form onSubmit={handleSubmit} className="w-full max-w-[98vw] mx-auto px-2 sm:px-4">
       <Card className="w-full shadow-md">
-        <CardHeader className="sticky top-0 z-10 bg-white dark:bg-gray-950 border-b px-6 py-4">
-          <CardTitle className="text-2xl font-bold">{product?.id ? 'Edit Product' : 'Add New Product'}</CardTitle>
-          <CardDescription className="text-base mt-1">
-            Fill in the details below to {product?.id ? 'update' : 'create'} a product.
-          </CardDescription>
+        <CardHeader className="sticky top-0 z-10 bg-white dark:bg-gray-950 border-b px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-2xl font-bold">{product?.id ? 'Edit Product' : 'Add New Product'}</CardTitle>
+              <CardDescription className="text-base mt-1">
+                Fill in the details below to {product?.id ? 'update' : 'create'} a product.
+              </CardDescription>
+            </div>
+            <div className="sm:hidden">
+              <Sheet>
+                <SheetTrigger asChild>
+                  <Button variant="outline" size="icon" className="h-10 w-10">
+                    <Menu className="h-5 w-5" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[240px] sm:w-[300px]">
+                  <SheetHeader>
+                    <SheetTitle>Product Details</SheetTitle>
+                  </SheetHeader>
+                  <div className="flex flex-col space-y-2 mt-4">
+                    <Button
+                      variant={activeTab === "basic" ? "default" : "ghost"}
+                      className="justify-start"
+                      onClick={() => setActiveTab("basic")}
+                    >
+                      Basic Info
+                    </Button>
+                    <Button
+                      variant={activeTab === "details" ? "default" : "ghost"}
+                      className="justify-start"
+                      onClick={() => setActiveTab("details")}
+                    >
+                      Details
+                    </Button>
+                    <Button
+                      variant={activeTab === "media" ? "default" : "ghost"}
+                      className="justify-start"
+                      onClick={() => setActiveTab("media")}
+                    >
+                      Media
+                    </Button>
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="overflow-y-auto max-h-[calc(100vh-12rem)] px-6 py-4">
+        <CardContent className="overflow-y-auto max-h-[calc(100vh-16rem)] px-4 py-3">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-1 sm:grid-cols-3 mb-6 sticky top-0 z-10 bg-white dark:bg-gray-950 py-2 border-b">
+            <TabsList className="hidden sm:grid grid-cols-3 mb-4 sticky top-0 z-10 bg-white dark:bg-gray-950 py-2 border-b">
               <TabsTrigger value="basic" className="text-base py-2">Basic Info</TabsTrigger>
               <TabsTrigger value="details" className="text-base py-2">Details</TabsTrigger>
               <TabsTrigger value="media" className="text-base py-2">Media</TabsTrigger>
             </TabsList>
             
-            <TabsContent value="basic" className="space-y-6 pb-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
+            <TabsContent value="basic" className="space-y-4 pb-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1">
                   <Label htmlFor="name" className="text-base font-medium">Product Name *</Label>
                   <Input
                     id="name"
@@ -373,7 +421,7 @@ export default function ProductForm({ categories, product, onSuccess }) {
                   {renderError('name')}
                 </div>
                 
-                <div className="space-y-2">
+                <div className="space-y-1">
                   <Label htmlFor="category" className="text-base font-medium">Category *</Label>
                   <Select 
                     value={formData.categoryId}
@@ -396,22 +444,8 @@ export default function ProductForm({ categories, product, onSuccess }) {
                   </Select>
                   {renderError('categoryId')}
                 </div>
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="description" className="text-base font-medium">Description *</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={handleInputChange}
-                  placeholder="Enter product description"
-                  className={`min-h-[150px] ${formErrors.description ? "border-red-500" : ""}`}
-                />
-                {renderError('description')}
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-2">
+
+                <div className="space-y-1">
                   <Label htmlFor="price" className="text-base font-medium">Price (Ksh) *</Label>
                   <Input
                     id="price"
@@ -425,8 +459,8 @@ export default function ProductForm({ categories, product, onSuccess }) {
                   />
                   {renderError('price')}
                 </div>
-                
-                <div className="space-y-2">
+
+                <div className="space-y-1">
                   <Label htmlFor="stock" className="text-base font-medium">Stock Quantity</Label>
                   <Input
                     id="stock"
@@ -441,112 +475,128 @@ export default function ProductForm({ categories, product, onSuccess }) {
                 </div>
               </div>
               
-              <div className="flex items-center space-x-2 pt-2">
-                <Checkbox
-                  id="inStock"
-                  checked={formData.inStock}
-                  onCheckedChange={(checked) => 
-                    setFormData(prev => ({ ...prev, inStock: checked }))
-                  }
-                  className="h-5 w-5"
-                />
-                <Label htmlFor="inStock" className="text-base">Mark as In Stock</Label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="inStock"
+                      checked={formData.inStock}
+                      onCheckedChange={(checked) => 
+                        setFormData(prev => ({ ...prev, inStock: checked }))
+                      }
+                      className="h-5 w-5"
+                    />
+                    <Label htmlFor="inStock" className="text-base">Mark as In Stock</Label>
+                  </div>
+                  <p className="text-sm text-gray-500">
+                    Products with stock quantity of 0 will automatically be marked as out of stock.
+                  </p>
+                </div>
+                
+                <div className="space-y-1">
+                  <Label htmlFor="description" className="text-base font-medium">Description *</Label>
+                  <Textarea
+                    id="description"
+                    value={formData.description}
+                    onChange={handleInputChange}
+                    placeholder="Enter product description"
+                    className={`min-h-[80px] ${formErrors.description ? "border-red-500" : ""}`}
+                  />
+                  {renderError('description')}
+                </div>
               </div>
-              <p className="text-sm text-gray-500">
-                Products with stock quantity of 0 will automatically be marked as out of stock. Use this checkbox to manually override the stock status.
-              </p>
             </TabsContent>
             
-            <TabsContent value="details" className="space-y-8 pb-6">
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <Label className="text-base font-medium">Product Features *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addFeature}
-                    className="h-9"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Feature
-                  </Button>
-                </div>
-                
+            <TabsContent value="details" className="space-y-6 pb-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <div className="space-y-3">
-                  {formData.features.map((feature, index) => (
-                    <div key={index} className="flex flex-col sm:flex-row gap-2">
-                      <Input
-                        value={feature}
-                        onChange={(e) => handleFeatureChange(index, e.target.value)}
-                        placeholder={`Feature ${index + 1}`}
-                        className={`${index === 0 && formErrors.features ? "border-red-500" : ""} flex-1 h-10`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeFeature(index)}
-                        className="self-end sm:self-auto h-10 w-10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {renderError('features')}
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <Label className="text-base font-medium">Product Features *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addFeature}
+                      className="h-9"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Feature
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {formData.features.map((feature, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          value={feature}
+                          onChange={(e) => handleFeatureChange(index, e.target.value)}
+                          placeholder={`Feature ${index + 1}`}
+                          className={`${index === 0 && formErrors.features ? "border-red-500" : ""} flex-1 h-10`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeFeature(index)}
+                          className="self-end sm:self-auto h-10 w-10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {renderError('features')}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                    <Label className="text-base font-medium">Product Specifications *</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addSpec}
+                      className="h-9"
+                    >
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Specification
+                    </Button>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    {formData.specs.map((spec, index) => (
+                      <div key={index} className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                          value={spec.name}
+                          onChange={(e) => handleSpecChange(index, 'name', e.target.value)}
+                          placeholder="Spec name"
+                          className={`${index === 0 && formErrors.specs ? "border-red-500" : ""} flex-1 h-10`}
+                        />
+                        <Input
+                          value={spec.value}
+                          onChange={(e) => handleSpecChange(index, 'value', e.target.value)}
+                          placeholder="Spec value"
+                          className={`${index === 0 && formErrors.specs ? "border-red-500" : ""} flex-1 h-10`}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeSpec(index)}
+                          className="self-end sm:self-auto h-10 w-10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {renderError('specs')}
+                  </div>
                 </div>
               </div>
               
-              <Separator className="my-6" />
+              <Separator className="my-4" />
               
-              <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
-                  <Label className="text-base font-medium">Product Specifications *</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addSpec}
-                    className="h-9"
-                  >
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Specification
-                  </Button>
-                </div>
-                
-                <div className="space-y-3">
-                  {formData.specs.map((spec, index) => (
-                    <div key={index} className="flex flex-col sm:flex-row gap-2">
-                      <Input
-                        value={spec.name}
-                        onChange={(e) => handleSpecChange(index, 'name', e.target.value)}
-                        placeholder="Spec name"
-                        className={`${index === 0 && formErrors.specs ? "border-red-500" : ""} flex-1 h-10`}
-                      />
-                      <Input
-                        value={spec.value}
-                        onChange={(e) => handleSpecChange(index, 'value', e.target.value)}
-                        placeholder="Spec value"
-                        className={`${index === 0 && formErrors.specs ? "border-red-500" : ""} flex-1 h-10`}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeSpec(index)}
-                        className="self-end sm:self-auto h-10 w-10"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                  {renderError('specs')}
-                </div>
-              </div>
-              
-              <Separator className="my-6" />
-              
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <Label className="text-base font-medium">Product Tags</Label>
                 <div className="flex flex-wrap gap-2 mb-2 min-h-[40px] p-2 border rounded-md">
                   {formData.tags.length > 0 ? (
@@ -577,77 +627,79 @@ export default function ProductForm({ categories, product, onSuccess }) {
               </div>
             </TabsContent>
             
-            <TabsContent value="media" className="space-y-6 pb-6">
-              <div>
-                <Label className="text-base font-medium">Product Image</Label>
-                <label
-                  htmlFor="image-upload"
-                  className={`block border-2 border-dashed rounded-lg p-6 text-center mt-2 ${
-                    dragActive ? 'border-primary bg-primary/5' : 'border-gray-200'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-                  onDragEnter={handleDrag}
-                  onDragLeave={handleDrag}
-                  onDragOver={handleDrag}
-                  onDrop={handleDrop}
-                >
-                  {previewImage ? (
-                    <div className="relative">
-                      <img
-                        src={previewImage}
-                        alt="Product preview" 
-                        className="w-full h-64 object-contain"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 bg-white/80 hover:bg-white"
-                        onClick={(e) => {
-                          e.preventDefault() // Prevent label click
-                          setPreviewImage('')
-                          setFormData(prev => ({ ...prev, imageUrl: '', imageData: '' }))
-                        }}
-                        disabled={loading}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="mx-auto h-16 w-16 text-gray-400" />
-                      <p className="mt-3 text-base">
-                        {loading ? 'Uploading...' : 'Drag & drop an image here, or click to select'}
-                      </p>
-                      <p className="text-sm text-gray-500 mt-1">PNG, JPG or WEBP (max. 1MB)</p>
-                    </>
-                  )}
-                  <Input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    onChange={(e) => handleImageUpload(e.target.files?.[0])}
-                    className="hidden"
-                    id="image-upload"
-                    disabled={loading}
-                  />
-                </label>
+            <TabsContent value="media" className="space-y-4 pb-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div>
+                  <Label className="text-base font-medium">Product Image</Label>
+                  <label
+                    htmlFor="image-upload"
+                    className={`block border-2 border-dashed rounded-lg p-4 text-center mt-2 ${
+                      dragActive ? 'border-primary bg-primary/5' : 'border-gray-200'
+                    } ${loading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                    onDragEnter={handleDrag}
+                    onDragLeave={handleDrag}
+                    onDragOver={handleDrag}
+                    onDrop={handleDrop}
+                  >
+                    {previewImage ? (
+                      <div className="relative">
+                        <img
+                          src={previewImage}
+                          alt="Product preview" 
+                          className="w-full h-48 object-contain"
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="absolute top-2 right-2 bg-white/80 hover:bg-white"
+                          onClick={(e) => {
+                            e.preventDefault() // Prevent label click
+                            setPreviewImage('')
+                            setFormData(prev => ({ ...prev, imageUrl: '', imageData: '' }))
+                          }}
+                          disabled={loading}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="mx-auto h-12 w-12 text-gray-400" />
+                        <p className="mt-2 text-base">
+                          {loading ? 'Uploading...' : 'Drag & drop an image here, or click to select'}
+                        </p>
+                        <p className="text-sm text-gray-500 mt-1">PNG, JPG or WEBP (max. 1MB)</p>
+                      </>
+                    )}
+                    <Input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={(e) => handleImageUpload(e.target.files?.[0])}
+                      className="hidden"
+                      id="image-upload"
+                      disabled={loading}
+                    />
+                  </label>
+                </div>
               </div>
             </TabsContent>
           </Tabs>
         </CardContent>
-        <CardFooter className="sticky bottom-0 z-10 bg-white dark:bg-gray-950 border-t flex flex-col sm:flex-row justify-between gap-4 py-4 px-6">
+        <CardFooter className="bg-white dark:bg-gray-950 border-t flex flex-col sm:flex-row justify-center gap-4 py-4 px-4">
           <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto">
             <Button
               type="button"
               variant="outline"
               onClick={() => router.back()}
-              className="w-full sm:w-auto h-10"
+              className="w-full sm:w-32 h-10"
             >
               Cancel
             </Button>
             <Button 
               type="submit" 
               disabled={loading || Object.keys(formErrors).length > 0}
-              className="w-full sm:w-auto h-10"
+              className="w-full sm:w-40 h-10"
             >
               {loading ? 'Saving...' : product?.id ? 'Update Product' : 'Add Product'}
             </Button>
