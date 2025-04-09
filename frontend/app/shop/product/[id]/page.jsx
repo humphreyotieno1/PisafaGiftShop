@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useCart } from "@/context/cart-context"
 import { useToast } from "@/components/ui/use-toast"
 import ProductCard from "@/components/product-card"
+import { featuredProducts } from "@/components/featured-products"
 
 export default function ProductPage() {
   const params = useParams()
@@ -25,6 +26,21 @@ export default function ProductPage() {
     const fetchProduct = async () => {
       try {
         setLoading(true)
+        
+        // First check if it's a featured product
+        const featuredProduct = featuredProducts.find(p => p.id === params.id)
+        if (featuredProduct) {
+          setProduct(featuredProduct)
+          // Get related products from the same category
+          const related = featuredProducts
+            .filter(p => p.id !== params.id && p.category === featuredProduct.category)
+            .slice(0, 4)
+          setRelatedProducts(related)
+          setLoading(false)
+          return
+        }
+
+        // If not a featured product, fetch from the database
         const response = await fetch(`/api/shop/products/${params.id}`)
         
         if (!response.ok) {
@@ -88,29 +104,17 @@ export default function ProductPage() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 pt-32">
-        <div className="animate-pulse space-y-8">
-          <div className="h-4 w-1/4 bg-muted rounded" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="aspect-square bg-muted rounded-lg" />
-            <div className="space-y-4">
-              <div className="h-8 w-3/4 bg-muted rounded" />
-              <div className="h-4 w-1/4 bg-muted rounded" />
-              <div className="h-6 w-1/4 bg-muted rounded" />
-              <div className="h-4 w-full bg-muted rounded" />
-              <div className="h-10 w-1/3 bg-muted rounded" />
-            </div>
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-[calc(100vh-4rem)]">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
       </div>
     )
   }
 
   if (!product) {
     return (
-      <div className="mx-auto max-w-7xl px-4 py-8 pt-32 text-center">
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)]">
         <h1 className="text-2xl font-bold mb-4">Product Not Found</h1>
-        <p className="text-muted-foreground mb-6">The product you're looking for doesn't exist or has been removed.</p>
+        <p className="text-muted-foreground mb-6">The product you're looking for doesn't exist.</p>
         <Button asChild>
           <Link href="/shop">Back to Shop</Link>
         </Button>
@@ -119,42 +123,17 @@ export default function ProductPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8 pt-32">
-      {/* Breadcrumbs */}
-      <nav className="mb-8">
-        <ol className="flex text-sm text-muted-foreground">
-          <li>
-            <Link href="/" className="hover:text-primary">
-              Home
-            </Link>
-          </li>
-          <li className="mx-2">
-            <ChevronRight className="h-4 w-4" />
-          </li>
-          <li>
-            <Link href="/shop" className="hover:text-primary">
-              Shop
-            </Link>
-          </li>
-          <li className="mx-2">
-            <ChevronRight className="h-4 w-4" />
-          </li>
-          <li>
-            <Link
-              href={`/shop?category=${product.categoryName.toLowerCase().replace(/\s+/g, "-")}`}
-              className="hover:text-primary"
-            >
-              {product.categoryName}
-            </Link>
-          </li>
-          <li className="mx-2">
-            <ChevronRight className="h-4 w-4" />
-          </li>
-          <li className="font-medium text-foreground">{product.name}</li>
-        </ol>
-      </nav>
+    <div className="container mx-auto px-4 py-8 pt-24">
+      <div className="mb-6 flex items-center text-sm text-muted-foreground">
+        <Link href="/shop" className="hover:text-primary">Shop</Link>
+        <ChevronRight className="h-4 w-4 mx-2" />
+        <Link href={`/shop?category=${product.category?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-primary">
+          {product.category}
+        </Link>
+        <ChevronRight className="h-4 w-4 mx-2" />
+        <span className="text-foreground truncate">{product.name}</span>
+      </div>
 
-      {/* Product Details */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {/* Product Image */}
         <div className="aspect-square relative rounded-lg overflow-hidden bg-muted">
@@ -248,14 +227,14 @@ export default function ProductPage() {
           )}
 
           {/* Product Specifications */}
-          {product.specs && Array.isArray(product.specs) && product.specs.length > 0 && (
+          {product.specs && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold mb-4">Specifications</h2>
               <div className="grid grid-cols-2 gap-4">
-                {product.specs.map((spec, index) => (
+                {Object.entries(product.specs).map(([key, value], index) => (
                   <div key={index}>
-                    <p className="text-sm text-muted-foreground">{spec.name}</p>
-                    <p className="font-medium">{spec.value}</p>
+                    <p className="text-sm text-muted-foreground">{key}</p>
+                    <p className="font-medium">{value}</p>
                   </div>
                 ))}
               </div>
