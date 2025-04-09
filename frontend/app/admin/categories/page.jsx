@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { motion } from "framer-motion"
 import { Plus, Edit, Trash2, MoreHorizontal, Search, Image as ImageIcon, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -24,6 +24,8 @@ import {
 import { Label } from "@/components/ui/label"
 import { useToast } from "@/components/ui/use-toast"
 import { useAuth } from "@/context/auth-context"
+import { useOptimizedFetch, useOptimizedMutation } from "@/hooks/useOptimizedFetch"
+import { compressImage, validateImage } from "@/lib/image-optimizer"
 
 // Helper function to format error messages
 const formatErrorMessage = (error) => {
@@ -32,11 +34,66 @@ const formatErrorMessage = (error) => {
   return 'An unexpected error occurred'
 }
 
+// Memoized category table row component to prevent unnecessary re-renders
+const CategoryRow = memo(({ category, onEdit, onDelete }) => (
+  <motion.tr 
+    key={category.id} 
+    className="border-t hover:bg-muted/30 transition-colors"
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.3 }}
+  >
+    <td className="px-4 py-3">
+      {category.image ? (
+        <img
+          src={category.image}
+          alt={category.name}
+          className="h-10 w-10 object-cover rounded-md border"
+          loading="lazy"
+        />
+      ) : (
+        <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+          <ImageIcon className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+    </td>
+    <td className="px-4 py-3 font-medium">{category.name}</td>
+    <td className="px-4 py-3">
+      <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+        {category.productCount}
+      </span>
+    </td>
+    <td className="px-4 py-3 text-right">
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" size="icon" className="h-8 w-8">
+            <MoreHorizontal className="h-4 w-4" />
+            <span className="sr-only">Open menu</span>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-[160px]">
+          <DropdownMenuItem onClick={() => onEdit(category)} className="cursor-pointer">
+            <Edit className="mr-2 h-4 w-4" />
+            Edit
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() => onDelete(category)}
+            className="text-destructive cursor-pointer focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" />
+            Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </td>
+  </motion.tr>
+));
+
+CategoryRow.displayName = 'CategoryRow';
+
 export default function CategoriesPage() {
   const { toast } = useToast()
   const { user, isAdmin, navigateBack } = useAuth()
-  const [categories, setCategories] = useState([])
-  const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
@@ -50,6 +107,39 @@ export default function CategoriesPage() {
   const [dragActive, setDragActive] = useState(false)
   const [previewImage, setPreviewImage] = useState('')
 
+  // Use optimized fetch hook for categories
+  const { 
+    data: categoriesData, 
+    loading, 
+    error: fetchError, 
+    refetch: fetchCategories 
+  } = useOptimizedFetch('/api/admin/categories')
+
+  // Use optimized mutation hooks for CRUD operations
+  const { 
+    mutate: createCategory, 
+    loading: createLoading, 
+    error: createError 
+  } = useOptimizedMutation('/api/admin/categories', 'POST')
+
+  const { 
+    mutate: updateCategory, 
+    loading: updateLoading, 
+    error: updateError 
+  } = useOptimizedMutation('/api/admin/categories', 'PUT')
+
+  const { 
+    mutate: deleteCategory, 
+    loading: deleteLoading, 
+    error: deleteError 
+  } = useOptimizedMutation('/api/admin/categories', 'DELETE')
+
+  // Compute actionLoading state
+  const actionLoading = createLoading || updateLoading || deleteLoading
+
+  // Get categories from data
+  const categories = categoriesData?.categories || []
+
   useEffect(() => {
     if (user && !isAdmin) {
       toast({
@@ -58,33 +148,20 @@ export default function CategoriesPage() {
         variant: 'destructive',
       })
       navigateBack('/')
-    } else {
-      fetchCategories()
     }
-  }, [user, isAdmin])
+  }, [user, isAdmin, navigateBack, toast])
 
-  const fetchCategories = async () => {
-    try {
-      setLoading(true)
-      const response = await fetch('/api/admin/categories')
-      
-      if (!response.ok) {
-        throw new Error('Failed to fetch categories')
-      }
-      
-      const data = await response.json()
-      setCategories(data.categories)
-    } catch (error) {
-      console.error('Error fetching categories:', error)
+  // Handle errors from fetch and mutations
+  useEffect(() => {
+    const error = fetchError || createError || updateError || deleteError
+    if (error) {
       toast({
         title: 'Error',
         description: formatErrorMessage(error),
         variant: 'destructive',
       })
-    } finally {
-      setLoading(false)
     }
-  }
+  }, [fetchError, createError, updateError, deleteError, toast])
 
   const handleDrag = useCallback((e) => {
     e.preventDefault()
@@ -107,84 +184,59 @@ export default function CategoriesPage() {
     }
   }, [])
 
-  const handleImageUpload = async (file) => {
+  const handleImageUpload = useCallback(async (file) => {
     try {
-      // Validate file type
-      const validTypes = ['image/jpeg', 'image/png', 'image/webp']
-      if (!validTypes.includes(file.type)) {
+      // Validate image
+      const validation = validateImage(file, ['image/jpeg', 'image/png', 'image/webp'], 1)
+      if (!validation.valid) {
         toast({
           title: "Error",
-          description: "Invalid file type. Only JPG, PNG, and WEBP files are allowed.",
+          description: validation.error,
           variant: "destructive",
         })
         return
       }
 
-      // Validate file size (1MB)
-      if (file.size > 1 * 1024 * 1024) {
-        toast({
-          title: "Error",
-          description: "File size too large. Maximum size is 1MB.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      // Convert file to base64
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        const base64Data = reader.result
-        setFormData(prev => ({
-          ...prev,
-          imageData: base64Data,
-          imageUrl: null // Clear the URL if we're using base64 data
-        }))
-        setPreviewImage(base64Data)
-        toast({
-          title: "Success",
-          description: "Image uploaded successfully!",
-        })
-      }
-      reader.readAsDataURL(file)
+      // Compress image
+      const base64Data = await compressImage(file, 800, 800, 0.8)
+      
+      setFormData(prev => ({
+        ...prev,
+        imageData: base64Data,
+        imageUrl: URL.createObjectURL(file)
+      }))
+      setPreviewImage(URL.createObjectURL(file))
     } catch (error) {
-      console.error("Error handling image:", error)
+      console.error('Error uploading image:', error)
       toast({
         title: "Error",
-        description: "Failed to process image",
+        description: formatErrorMessage(error),
         variant: "destructive",
       })
     }
-  }
+  }, [toast])
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = useCallback(async (e) => {
     e.preventDefault()
     try {
-      const url = editingCategory
-        ? `/api/admin/categories/${editingCategory.id}`
-        : '/api/admin/categories'
-      
-      const method = editingCategory ? 'PUT' : 'POST'
-      
       // Prepare the request body
       const requestBody = {
         name: formData.name,
         image: formData.imageData
       }
       
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || `Failed to ${editingCategory ? 'update' : 'create'} category`)
+      if (editingCategory) {
+        // Update existing category
+        await updateCategory(requestBody, `/api/admin/categories/${editingCategory.id}`)
+      } else {
+        // Create new category
+        await createCategory(requestBody)
       }
       
+      // Refresh categories list
       await fetchCategories()
+      
+      // Reset form state
       setIsDialogOpen(false)
       setFormData({ name: '', imageData: null, imageUrl: '' })
       setPreviewImage('')
@@ -196,52 +248,36 @@ export default function CategoriesPage() {
       })
     } catch (error) {
       console.error('Error submitting category:', error)
-      toast({
-        title: 'Error',
-        description: formatErrorMessage(error),
-        variant: 'destructive',
-      })
+      // Error is handled by the useEffect above
     }
-  }
+  }, [editingCategory, formData, createCategory, updateCategory, fetchCategories, toast])
 
-  const handleDelete = (category) => {
+  const handleDelete = useCallback((category) => {
     setCategoryToDelete(category.id)
     setIsDeleteDialogOpen(true)
-  }
+  }, [])
 
-  const handleDeleteConfirm = async () => {
+  const handleDeleteConfirm = useCallback(async () => {
     try {
-      const response = await fetch(`/api/admin/categories/${categoryToDelete}`, {
-        method: 'DELETE',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      })
+      await deleteCategory(null, `/api/admin/categories/${categoryToDelete}`)
       
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'Failed to delete category')
-      }
-      
+      // Refresh categories list
       await fetchCategories()
+      
       toast({
         title: 'Category Deleted',
         description: 'The category has been successfully deleted.',
       })
     } catch (error) {
       console.error('Error deleting category:', error)
-      toast({
-        title: 'Error',
-        description: formatErrorMessage(error),
-        variant: 'destructive',
-      })
+      // Error is handled by the useEffect above
     } finally {
       setIsDeleteDialogOpen(false)
       setCategoryToDelete(null)
     }
-  }
+  }, [categoryToDelete, deleteCategory, fetchCategories, toast])
 
-  const handleAddCategory = () => {
+  const handleAddCategory = useCallback(() => {
     setEditingCategory(null)
     setFormData({
       name: '',
@@ -250,9 +286,9 @@ export default function CategoriesPage() {
     })
     setPreviewImage('')
     setIsDialogOpen(true)
-  }
+  }, [])
 
-  const handleEdit = (category) => {
+  const handleEdit = useCallback((category) => {
     setEditingCategory(category)
     setFormData({
       name: category.name,
@@ -261,21 +297,21 @@ export default function CategoriesPage() {
     })
     setPreviewImage(category.image || '')
     setIsDialogOpen(true)
-  }
+  }, [])
 
   const filteredCategories = categories.filter(category =>
     category.name.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
-  const handleSearch = (e) => {
+  const handleSearch = useCallback((e) => {
     e.preventDefault()
     // Search is handled by the filteredCategories computation
-  }
+  }, [])
 
-  const handleInputChange = (e) => {
+  const handleInputChange = useCallback((e) => {
     const { name, value } = e.target
     setFormData(prev => ({ ...prev, [name]: value }))
-  }
+  }, [])
 
   return (
     <div className="p-4 md:p-6 space-y-6">
@@ -289,8 +325,17 @@ export default function CategoriesPage() {
           <Button variant="outline" onClick={navigateBack} size="sm" className="h-9">
             Back
           </Button>
-          <Button onClick={handleAddCategory} size="sm" className="h-9 flex items-center gap-2 bg-primary hover:bg-primary/90">
-            <Plus className="h-4 w-4" />
+          <Button 
+            onClick={handleAddCategory} 
+            size="sm" 
+            className="h-9 flex items-center gap-2 bg-primary hover:bg-primary/90"
+            disabled={actionLoading}
+          >
+            {actionLoading ? (
+              <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+            ) : (
+              <Plus className="h-4 w-4" />
+            )}
             Add Category
           </Button>
         </div>
@@ -312,6 +357,7 @@ export default function CategoriesPage() {
                   className="pl-10 w-full max-w-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  disabled={loading}
                 />
               </div>
             </form>
@@ -346,56 +392,12 @@ export default function CategoriesPage() {
                     </tr>
                   ) : (
                     filteredCategories.map((category) => (
-                      <motion.tr 
-                        key={category.id} 
-                        className="border-t hover:bg-muted/30 transition-colors"
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3 }}
-                      >
-                        <td className="px-4 py-3">
-                          {category.image ? (
-                            <img
-                              src={category.image}
-                              alt={category.name}
-                              className="h-10 w-10 object-cover rounded-md border"
-                            />
-                          ) : (
-                            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
-                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 font-medium">{category.name}</td>
-                        <td className="px-4 py-3">
-                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
-                            {category.productCount}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8">
-                                <MoreHorizontal className="h-4 w-4" />
-                                <span className="sr-only">Open menu</span>
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-[160px]">
-                              <DropdownMenuItem onClick={() => handleEdit(category)} className="cursor-pointer">
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleDelete(category)}
-                                className="text-destructive cursor-pointer focus:text-destructive"
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </td>
-                      </motion.tr>
+                      <CategoryRow 
+                        key={category.id}
+                        category={category}
+                        onEdit={handleEdit}
+                        onDelete={handleDelete}
+                      />
                     ))
                   )}
                 </tbody>
@@ -406,7 +408,7 @@ export default function CategoriesPage() {
       </Card>
 
       {/* Add/Edit Category Dialog */}
-      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+      <Dialog open={isDialogOpen} onOpenChange={(open) => !actionLoading && setIsDialogOpen(open)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
@@ -425,6 +427,7 @@ export default function CategoriesPage() {
                 placeholder="Enter category name"
                 required
                 className="w-full"
+                disabled={actionLoading}
               />
             </div>
             <div className="space-y-2">
@@ -432,12 +435,12 @@ export default function CategoriesPage() {
               <div
                 className={`relative flex h-40 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
                   dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary'
-                }`}
-                onDragEnter={handleDrag}
-                onDragLeave={handleDrag}
-                onDragOver={handleDrag}
-                onDrop={handleDrop}
-                onClick={() => document.getElementById('image-upload')?.click()}
+                } ${actionLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                onDragEnter={!actionLoading ? handleDrag : undefined}
+                onDragLeave={!actionLoading ? handleDrag : undefined}
+                onDragOver={!actionLoading ? handleDrag : undefined}
+                onDrop={!actionLoading ? handleDrop : undefined}
+                onClick={() => !actionLoading && document.getElementById('image-upload')?.click()}
               >
                 <input
                   id="image-upload"
@@ -448,6 +451,7 @@ export default function CategoriesPage() {
                     const file = e.target.files?.[0]
                     if (file) handleImageUpload(file)
                   }}
+                  disabled={actionLoading}
                 />
                 {previewImage ? (
                   <div className="relative w-full h-full">
@@ -455,6 +459,7 @@ export default function CategoriesPage() {
                       src={previewImage}
                       alt="Preview"
                       className="h-full w-full object-cover rounded-lg"
+                      loading="lazy"
                     />
                     <Button 
                       type="button" 
@@ -466,6 +471,7 @@ export default function CategoriesPage() {
                         setPreviewImage('');
                         setFormData(prev => ({ ...prev, imageData: null, imageUrl: '' }));
                       }}
+                      disabled={actionLoading}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -484,11 +490,27 @@ export default function CategoriesPage() {
               </div>
             </div>
             <DialogFooter className="sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setIsDialogOpen(false)}
+                disabled={actionLoading}
+              >
                 Cancel
               </Button>
-              <Button type="submit" className="bg-primary hover:bg-primary/90">
-                {editingCategory ? 'Update' : 'Create'} Category
+              <Button 
+                type="submit" 
+                className="bg-primary hover:bg-primary/90"
+                disabled={actionLoading}
+              >
+                {actionLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                    <span>Processing...</span>
+                  </div>
+                ) : (
+                  <>{editingCategory ? 'Update' : 'Create'} Category</>
+                )}
               </Button>
             </DialogFooter>
           </form>
@@ -496,7 +518,7 @@ export default function CategoriesPage() {
       </Dialog>
 
       {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      <Dialog open={isDeleteDialogOpen} onOpenChange={(open) => !actionLoading && setIsDeleteDialogOpen(open)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="text-destructive">Delete Category</DialogTitle>
@@ -516,14 +538,23 @@ export default function CategoriesPage() {
                 setIsDeleteDialogOpen(false)
                 setCategoryToDelete(null)
               }}
+              disabled={actionLoading}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleDeleteConfirm}
+              disabled={actionLoading}
             >
-              Delete
+              {actionLoading ? (
+                <div className="flex items-center gap-2">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-background border-t-transparent" />
+                  <span>Deleting...</span>
+                </div>
+              ) : (
+                'Delete'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

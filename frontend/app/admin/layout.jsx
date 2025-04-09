@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, memo } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import Link from "next/link"
 import { motion } from "framer-motion"
@@ -32,6 +32,21 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/components/ui/use-toast"
 
+// Memoized navigation item component to prevent unnecessary re-renders
+const NavItem = memo(({ href, icon, name, isActive, isSidebarOpen }) => (
+  <Link
+    href={href}
+    className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 ${
+      isActive ? 'bg-gray-100 dark:bg-gray-700 font-medium' : ''
+    } ${!isSidebarOpen ? 'justify-center' : ''}`}
+  >
+    {icon}
+    {isSidebarOpen && <span>{name}</span>}
+  </Link>
+));
+
+NavItem.displayName = 'NavItem';
+
 export default function AdminLayout({ children }) {
   const { isAuthenticated, isAdmin, loading, checkAuth, logout, user } = useAuth()
   const router = useRouter()
@@ -42,7 +57,7 @@ export default function AdminLayout({ children }) {
   const { toast } = useToast()
   
   // Get current page for breadcrumbs
-  const getPageTitle = () => {
+  const getPageTitle = useCallback(() => {
     if (pathname === '/admin') return 'Dashboard';
     const path = pathname.split('/').filter(Boolean);
     if (path.length >= 2) {
@@ -50,7 +65,7 @@ export default function AdminLayout({ children }) {
       return pageName.charAt(0).toUpperCase() + pageName.slice(1);
     }
     return 'Dashboard';
-  }
+  }, [pathname]);
   
   // Check if current page might need a filter sidebar
   const mightHaveFilterSidebar = pathname.includes('/products') || 
@@ -58,6 +73,7 @@ export default function AdminLayout({ children }) {
                                pathname.includes('/users') ||
                                pathname.includes('/orders')
 
+  // Session verification
   useEffect(() => {
     const verifySession = async () => {
       if (!loading) {
@@ -93,7 +109,7 @@ export default function AdminLayout({ children }) {
     }
 
     verifySession()
-  }, [loading])
+  }, [loading, checkAuth, router, toast])
 
   // Store current path in localStorage for navigation persistence
   useEffect(() => {
@@ -102,52 +118,47 @@ export default function AdminLayout({ children }) {
     }
   }, []);
 
-  // Debounced window resize handler
-  useEffect(() => {
-    let timeoutId;
-    const handleResize = () => {
-      setIsResizing(true);
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(() => {
-        if (window.innerWidth < 1024) {
-          setIsSidebarOpen(false);
-        } else {
-          setIsSidebarOpen(true);
-        }
-        setIsResizing(false);
-      }, 150); // 150ms debounce
-    };
+  // Debounced window resize handler with useCallback
+  const handleResize = useCallback(() => {
+    setIsResizing(true);
+    if (window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    } else {
+      setIsSidebarOpen(true);
+    }
+    setIsResizing(false);
+  }, []);
 
+  useEffect(() => {
     // Set initial state
     handleResize();
 
+    // Debounced resize handler
+    let timeoutId;
+    const debouncedResize = () => {
+      setIsResizing(true);
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        handleResize();
+      }, 150); // 150ms debounce
+    };
+
     // Add event listener
-    window.addEventListener('resize', handleResize);
+    window.addEventListener('resize', debouncedResize);
 
     // Cleanup
     return () => {
-      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('resize', debouncedResize);
       clearTimeout(timeoutId);
     };
-  }, []);
+  }, [handleResize]);
 
   // Close mobile sidebar when route changes
   useEffect(() => {
     setIsMobileSidebarOpen(false);
   }, [pathname]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
-      </div>
-    )
-  }
-
-  if (!isAuthenticated || !isAdmin) {
-    return null
-  }
-
+  // Memoize navigation items to prevent unnecessary re-renders
   const navItems = [
     {
       name: "Dashboard",
@@ -179,7 +190,21 @@ export default function AdminLayout({ children }) {
       href: "/admin/settings",
       icon: <Settings className="h-5 w-5" />,
     },
-  ]
+  ];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  // Auth check
+  if (!isAuthenticated || !isAdmin) {
+    return null
+  }
 
   return (
     <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
@@ -302,16 +327,14 @@ export default function AdminLayout({ children }) {
 
               <nav className="space-y-1 px-2">
                 {navItems.map((item) => (
-                  <Link
+                  <NavItem
                     key={item.href}
                     href={item.href}
-                    className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 ${
-                      pathname === item.href ? 'bg-gray-100 dark:bg-gray-700 font-medium' : ''
-                    }`}
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Link>
+                    icon={item.icon}
+                    name={item.name}
+                    isActive={pathname === item.href}
+                    isSidebarOpen={true}
+                  />
                 ))}
               </nav>
 
@@ -355,16 +378,14 @@ export default function AdminLayout({ children }) {
 
           <nav className="space-y-1 px-2">
             {navItems.map((item) => (
-              <Link
+              <NavItem
                 key={item.href}
                 href={item.href}
-                className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 ${
-                  pathname === item.href ? 'bg-gray-100 dark:bg-gray-700 font-medium' : ''
-                } ${!isSidebarOpen ? 'justify-center' : ''}`}
-              >
-                {item.icon}
-                {isSidebarOpen && <span>{item.name}</span>}
-              </Link>
+                icon={item.icon}
+                name={item.name}
+                isActive={pathname === item.href}
+                isSidebarOpen={isSidebarOpen}
+              />
             ))}
           </nav>
 
