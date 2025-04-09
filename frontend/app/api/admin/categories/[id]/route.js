@@ -58,13 +58,17 @@ export async function PUT(request, { params }) {
     // Update the category
     const category = await prisma.category.update({
       where: { id },
-      data: { name }
+      data: { 
+        name,
+        image: body.image // Include image data in the update
+      }
     })
 
     return NextResponse.json({ 
       category: {
         id: category.id,
         name: category.name,
+        image: category.image,
         slug: category.name.toLowerCase().replace(/\s+/g, '-'),
         createdAt: category.createdAt,
         updatedAt: category.updatedAt

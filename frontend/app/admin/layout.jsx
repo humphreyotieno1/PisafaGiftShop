@@ -37,6 +37,7 @@ export default function AdminLayout({ children }) {
   const router = useRouter()
   const pathname = usePathname()
   const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false)
   const [isResizing, setIsResizing] = useState(false)
   const { toast } = useToast()
   
@@ -130,6 +131,11 @@ export default function AdminLayout({ children }) {
     };
   }, []);
 
+  // Close mobile sidebar when route changes
+  useEffect(() => {
+    setIsMobileSidebarOpen(false);
+  }, [pathname]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -156,12 +162,12 @@ export default function AdminLayout({ children }) {
     {
       name: "Categories",
       href: "/admin/categories",
-      icon: <ShoppingBag className="h-5 w-5" />,
+      icon: <SlidersHorizontal className="h-5 w-5" />,
     },
     {
       name: "Orders",
       href: "/admin/orders",
-      icon: <ShoppingCart className="h-5 w-5" />,
+      icon: <ShoppingBag className="h-5 w-5" />,
     },
     {
       name: "Users",
@@ -176,108 +182,61 @@ export default function AdminLayout({ children }) {
   ]
 
   return (
-    <div className="flex min-h-screen mt-20 pt-12 md:pt-6 flex-col bg-gray-50 dark:bg-gray-900">
-      {/* Top Navigation Bar - Always visible */}
-      <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b bg-white px-4 shadow-sm dark:bg-gray-800 dark:border-gray-700">
+    <div className="flex h-screen flex-col bg-gray-50 dark:bg-gray-900">
+      {/* Header */}
+      <header className="flex h-16 items-center justify-between border-b bg-white px-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+        {/* Left side - Logo and mobile menu button */}
         <div className="flex items-center gap-4">
-          {/* Admin Panel Title with Dropdown Menu */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="ghost" 
-                className="flex items-center gap-2 -ml-2"
-                disabled={isResizing}
-              >
-                <Menu className="h-5 w-5" />
-                <span className="font-bold text-xl">Admin Panel</span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56">
-              <DropdownMenuLabel>Navigation</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {navItems.map((item) => (
-                <DropdownMenuItem key={item.href} asChild>
-                  <Link 
-                    href={item.href} 
-                    className="flex items-center gap-2 w-full cursor-pointer"
-                    prefetch={false}
-                  >
-                    {item.icon}
-                    <span>{item.name}</span>
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link 
-                  href="/" 
-                  className="flex items-center gap-2 w-full cursor-pointer"
-                  prefetch={false}
-                >
-                  <Home className="h-5 w-5" />
-                  <span>Back to Site</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem 
-                className="text-red-500" 
-                onClick={logout}
-              >
-                <LogOut className="h-5 w-5 mr-2" />
-                <span>Logout</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
-          {/* Breadcrumb */}
-          <div className="hidden sm:flex items-center gap-2">
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
-            <span className="font-medium">{getPageTitle()}</span>
-          </div>
+          {/* Mobile menu button */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="lg:hidden"
+            onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
+            aria-label="Toggle menu"
+          >
+            {isMobileSidebarOpen ? (
+              <X className="h-5 w-5" />
+            ) : (
+              <Menu className="h-5 w-5" />
+            )}
+          </Button>
+
+          {/* Logo */}
+          <Link href="/admin" className="flex items-center gap-2">
+            <ShoppingCart className="h-6 w-6 text-primary" />
+            <span className="text-lg font-bold hidden sm:inline-block">Pisafa Admin</span>
+          </Link>
         </div>
-        
+
+        {/* Breadcrumbs - Only visible on desktop */}
+        <div className="hidden md:flex items-center gap-1 text-sm">
+          <Link 
+            href="/admin" 
+            className="text-muted-foreground hover:text-foreground"
+          >
+            Admin
+          </Link>
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <span className="font-medium">{getPageTitle()}</span>
+        </div>
+
+        {/* Right side - User menu */}
         <div className="flex items-center gap-4">
-          {/* Filter Menu - Only visible on pages that might have filters */}
-          {mightHaveFilterSidebar && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="flex items-center gap-2"
-                  disabled={isResizing}
-                >
-                  <SlidersHorizontal className="h-4 w-4" />
-                  <span className="hidden sm:inline">Filters</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel>Filter Options</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <div className="p-2" id="filter-dropdown-content">
-                  {/* Filter content will be injected here by the page components */}
-                  <p className="text-sm text-muted-foreground">Filter options for this page will appear here.</p>
-                </div>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-          
-          {/* User Info */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button 
                 variant="ghost" 
-                size="icon" 
-                className="rounded-full"
-                disabled={isResizing}
+                className="relative h-9 w-9 rounded-full"
+                aria-label="User menu"
               >
-                <div className="h-8 w-8 rounded-full bg-primary text-center leading-8 text-primary-foreground">
-                  {user?.name?.charAt(0)}
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  {user?.name?.charAt(0).toUpperCase() || "U"}
                 </div>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="flex flex-col gap-1">
                 <div>
                   <p className="font-medium">{user?.name}</p>
                   <p className="text-xs text-muted-foreground">{user?.email}</p>
@@ -295,7 +254,7 @@ export default function AdminLayout({ children }) {
                 </Link>
               </DropdownMenuItem>
               <DropdownMenuItem 
-                className="text-red-500" 
+                className="text-red-500 focus:text-red-500 focus:bg-red-50 dark:focus:bg-red-950" 
                 onClick={logout}
               >
                 <LogOut className="h-4 w-4 mr-2" />
@@ -307,9 +266,75 @@ export default function AdminLayout({ children }) {
       </header>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Main Sidebar - Only visible on desktop */}
+        {/* Mobile Sidebar - Only visible on mobile */}
+        {isMobileSidebarOpen && (
+          <div className="fixed inset-0 z-40 lg:hidden">
+            {/* Backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/50" 
+              onClick={() => setIsMobileSidebarOpen(false)}
+              aria-hidden="true"
+            />
+            
+            {/* Mobile Sidebar Content */}
+            <motion.aside
+              className="fixed inset-y-0 left-0 w-64 overflow-y-auto bg-white pt-6 shadow-lg dark:bg-gray-800"
+              initial={{ x: -100, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              transition={{ duration: 0.2 }}
+            >
+              <div className="flex items-center justify-between px-4">
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="h-6 w-6 text-primary" />
+                  <span className="text-lg font-bold">Pisafa Admin</span>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setIsMobileSidebarOpen(false)}
+                  aria-label="Close menu"
+                >
+                  <X className="h-5 w-5" />
+                </Button>
+              </div>
+
+              <Separator className="my-4" />
+
+              <nav className="space-y-1 px-2">
+                {navItems.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 ${
+                      pathname === item.href ? 'bg-gray-100 dark:bg-gray-700 font-medium' : ''
+                    }`}
+                  >
+                    {item.icon}
+                    <span>{item.name}</span>
+                  </Link>
+                ))}
+              </nav>
+
+              <Separator className="my-4" />
+
+              {/* Logout Button */}
+              <div className="px-2">
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300"
+                  onClick={logout}
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span className="ml-2">Logout</span>
+                </Button>
+              </div>
+            </motion.aside>
+          </div>
+        )}
+
+        {/* Desktop Sidebar - Only visible on desktop */}
         <motion.aside
-          className={`hidden lg:block lg:w-64 overflow-y-auto bg-white pt-6 shadow-lg dark:bg-gray-800 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"}`}
+          className={`hidden lg:block overflow-y-auto bg-white pt-6 shadow-lg dark:bg-gray-800 transition-all duration-300 ${isSidebarOpen ? "lg:w-64" : "lg:w-20"}`}
           initial={false}
         >
           <div className="px-4">
@@ -318,6 +343,7 @@ export default function AdminLayout({ children }) {
               size="icon"
               className="ml-auto"
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+              aria-label={isSidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
             >
               <ChevronDown
                 className={`h-5 w-5 transition-transform ${isSidebarOpen ? "" : "rotate-180"}`}
@@ -327,12 +353,14 @@ export default function AdminLayout({ children }) {
 
           <Separator className="my-4" />
 
-          <nav className="space-y-2 px-2">
+          <nav className="space-y-1 px-2">
             {navItems.map((item) => (
               <Link
                 key={item.href}
                 href={item.href}
-                className="flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700"
+                className={`flex items-center space-x-2 rounded-lg px-3 py-2 text-gray-700 hover:bg-gray-100 dark:text-gray-200 dark:hover:bg-gray-700 ${
+                  pathname === item.href ? 'bg-gray-100 dark:bg-gray-700 font-medium' : ''
+                } ${!isSidebarOpen ? 'justify-center' : ''}`}
               >
                 {item.icon}
                 {isSidebarOpen && <span>{item.name}</span>}
@@ -346,7 +374,7 @@ export default function AdminLayout({ children }) {
           <div className="px-2">
             <Button
               variant="ghost"
-              className={`w-full justify-start text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300 ${!isSidebarOpen ? "px-0" : ""}`}
+              className={`w-full justify-${isSidebarOpen ? 'start' : 'center'} text-red-500 hover:bg-red-50 hover:text-red-600 dark:text-red-400 dark:hover:bg-red-950 dark:hover:text-red-300`}
               onClick={logout}
             >
               <LogOut className="h-5 w-5" />
@@ -355,32 +383,9 @@ export default function AdminLayout({ children }) {
           </div>
         </motion.aside>
 
-        {/* Secondary Filter Sidebar - Only visible on desktop */}
-        {mightHaveFilterSidebar && (
-          <aside className="hidden md:block md:w-64 overflow-y-auto bg-white pt-6 border-l dark:bg-gray-800 dark:border-gray-700">
-            <div className="px-4">
-              <h2 className="text-lg font-semibold">Filters</h2>
-            </div>
-            
-            <Separator className="my-4" />
-            
-            <div className="px-4">
-              {/* This is a placeholder for the filter content */}
-              {/* The actual filter content will be provided by the page components */}
-              <div id="desktop-filter-sidebar-content" className="space-y-4">
-                {/* Filter content will be injected here by the page components */}
-                <p className="text-sm text-muted-foreground">Filter options for this page will appear here.</p>
-              </div>
-            </div>
-          </aside>
-        )}
-
         {/* Main Content */}
-        <div className="flex-1 overflow-y-auto p-4 pt-6 lg:p-8">
-          <div className="mx-auto max-w-7xl">
-            {/* Page content */}
-            <div className="rounded-lg border bg-card p-4 sm:p-6 shadow-sm">{children}</div>
-          </div>
+        <div className="flex-1 overflow-y-auto">
+          {children}
         </div>
       </div>
     </div>

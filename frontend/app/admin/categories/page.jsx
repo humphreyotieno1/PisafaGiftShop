@@ -165,15 +165,18 @@ export default function CategoriesPage() {
       
       const method = editingCategory ? 'PUT' : 'POST'
       
+      // Prepare the request body
+      const requestBody = {
+        name: formData.name,
+        image: formData.imageData
+      }
+      
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          name: formData.name,
-          image: formData.imageData // Send the base64 image data directly
-        }),
+        body: JSON.stringify(requestBody),
       })
       
       if (!response.ok) {
@@ -201,8 +204,8 @@ export default function CategoriesPage() {
     }
   }
 
-  const handleDelete = async (categoryId) => {
-    setCategoryToDelete(categoryId)
+  const handleDelete = (category) => {
+    setCategoryToDelete(category.id)
     setIsDeleteDialogOpen(true)
   }
 
@@ -210,6 +213,9 @@ export default function CategoriesPage() {
     try {
       const response = await fetch(`/api/admin/categories/${categoryToDelete}`, {
         method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
       })
       
       if (!response.ok) {
@@ -251,7 +257,7 @@ export default function CategoriesPage() {
     setFormData({
       name: category.name,
       imageData: category.image || null,
-      imageUrl: ''
+      imageUrl: category.image || ''
     })
     setPreviewImage(category.image || '')
     setIsDialogOpen(true)
@@ -272,26 +278,26 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-4 md:p-6 space-y-6">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
-          <h1 className="text-3xl font-bold">Categories</h1>
-          <p className="text-muted-foreground">Manage product categories</p>
+          <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Categories</h1>
+          <p className="text-sm text-muted-foreground mt-1">Manage product categories</p>
         </div>
         
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={navigateBack}>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={navigateBack} size="sm" className="h-9">
             Back
           </Button>
-          <Button onClick={handleAddCategory} className="flex items-center gap-2">
+          <Button onClick={handleAddCategory} size="sm" className="h-9 flex items-center gap-2 bg-primary hover:bg-primary/90">
             <Plus className="h-4 w-4" />
             Add Category
           </Button>
         </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-3">
           <CardTitle>Category Management</CardTitle>
           <CardDescription>You have {filteredCategories.length} categories</CardDescription>
         </CardHeader>
@@ -303,7 +309,7 @@ export default function CategoriesPage() {
                 <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   placeholder="Search categories..."
-                  className="pl-10"
+                  className="pl-10 w-full max-w-sm"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -317,10 +323,10 @@ export default function CategoriesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-muted/50">
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Image</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Name</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Products</th>
-                    <th className="whitespace-nowrap px-4 py-3 text-right font-medium">Actions</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Image</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Products</th>
+                    <th className="whitespace-nowrap px-4 py-3 text-right text-xs font-medium uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -340,13 +346,19 @@ export default function CategoriesPage() {
                     </tr>
                   ) : (
                     filteredCategories.map((category) => (
-                      <tr key={category.id} className="border-t">
+                      <motion.tr 
+                        key={category.id} 
+                        className="border-t hover:bg-muted/30 transition-colors"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.3 }}
+                      >
                         <td className="px-4 py-3">
                           {category.image ? (
                             <img
                               src={category.image}
                               alt={category.name}
-                              className="h-10 w-10 object-cover rounded-md"
+                              className="h-10 w-10 object-cover rounded-md border"
                             />
                           ) : (
                             <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
@@ -354,23 +366,28 @@ export default function CategoriesPage() {
                             </div>
                           )}
                         </td>
-                        <td className="px-4 py-3">{category.name}</td>
-                        <td className="px-4 py-3">{category.productCount}</td>
+                        <td className="px-4 py-3 font-medium">{category.name}</td>
+                        <td className="px-4 py-3">
+                          <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+                            {category.productCount}
+                          </span>
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
                                 <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Open menu</span>
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleEdit(category)}>
+                            <DropdownMenuContent align="end" className="w-[160px]">
+                              <DropdownMenuItem onClick={() => handleEdit(category)} className="cursor-pointer">
                                 <Edit className="mr-2 h-4 w-4" />
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                onClick={() => handleDelete(category.id)}
-                                className="text-destructive"
+                                onClick={() => handleDelete(category)}
+                                className="text-destructive cursor-pointer focus:text-destructive"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
@@ -378,7 +395,7 @@ export default function CategoriesPage() {
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </td>
-                      </tr>
+                      </motion.tr>
                     ))
                   )}
                 </tbody>
@@ -390,7 +407,7 @@ export default function CategoriesPage() {
 
       {/* Add/Edit Category Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
             <DialogDescription>
@@ -407,12 +424,13 @@ export default function CategoriesPage() {
                 onChange={handleInputChange}
                 placeholder="Enter category name"
                 required
+                className="w-full"
               />
             </div>
             <div className="space-y-2">
               <Label>Category Image</Label>
               <div
-                className={`relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                className={`relative flex h-40 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
                   dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary'
                 }`}
                 onDragEnter={handleDrag}
@@ -432,11 +450,26 @@ export default function CategoriesPage() {
                   }}
                 />
                 {previewImage ? (
-                  <img
-                    src={previewImage}
-                    alt="Preview"
-                    className="h-full w-full object-cover rounded-lg"
-                  />
+                  <div className="relative w-full h-full">
+                    <img
+                      src={previewImage}
+                      alt="Preview"
+                      className="h-full w-full object-cover rounded-lg"
+                    />
+                    <Button 
+                      type="button" 
+                      variant="destructive" 
+                      size="icon" 
+                      className="absolute top-2 right-2 h-6 w-6 rounded-full"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPreviewImage('');
+                        setFormData(prev => ({ ...prev, imageData: null, imageUrl: '' }));
+                      }}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center gap-2">
                     <Upload className="h-8 w-8 text-muted-foreground" />
@@ -450,11 +483,11 @@ export default function CategoriesPage() {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="sm:justify-end">
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" className="bg-primary hover:bg-primary/90">
                 {editingCategory ? 'Update' : 'Create'} Category
               </Button>
             </DialogFooter>
@@ -464,19 +497,19 @@ export default function CategoriesPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle className="text-destructive">Delete Category</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this category? This action cannot be undone.
               {categoryToDelete && (
                 <p className="mt-2 font-medium text-red-600">
-                  Category: {categoryToDelete}
+                  Category: {categories.find(c => c.id === categoryToDelete)?.name || categoryToDelete}
                 </p>
               )}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="sm:justify-end">
             <Button
               variant="outline"
               onClick={() => {
