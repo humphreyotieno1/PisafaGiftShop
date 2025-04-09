@@ -53,7 +53,13 @@ export default function CategoryShowcase() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {loading ? (
           [...Array(6)].map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-lg bg-muted" />
+            <motion.div
+              key={index}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, delay: index * 0.1 }}
+              className="h-64 animate-pulse rounded-lg bg-muted"
+            />
           ))
         ) : categories.length > 0 ? (
           categories.map((category, index) => (
@@ -62,11 +68,47 @@ export default function CategoryShowcase() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3, delay: index * 0.1 }}
-              className="group relative overflow-hidden rounded-lg border bg-card p-6 transition-colors hover:bg-muted"
+              whileHover={{ scale: 1.02 }}
+              className="group relative overflow-hidden rounded-lg border bg-card"
             >
-              <Link href={`/shop?category=${category.slug}`} className="flex flex-col items-center justify-center text-center">
-                <h3 className="text-xl font-bold">{category.name}</h3>
-                <p className="text-sm text-muted-foreground">{category.productCount} products</p>
+              <Link href={`/shop?category=${category.slug}`} className="block h-full">
+                <div className="relative h-64 w-full overflow-hidden">
+                  {category.image ? (
+                    <motion.img
+                      src={category.image}
+                      alt={category.name}
+                      className="h-full w-full object-cover"
+                      initial={{ scale: 1 }}
+                      whileHover={{ scale: 1.1 }}
+                      transition={{ duration: 0.3 }}
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-muted">
+                      <span className="text-4xl font-bold text-muted-foreground">
+                        {category.name.charAt(0).toUpperCase()}
+                      </span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                </div>
+                <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
+                  <motion.h3 
+                    className="text-xl font-bold"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    {category.name}
+                  </motion.h3>
+                  <motion.p 
+                    className="text-sm text-white/80"
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                  >
+                    {category.productCount} products
+                  </motion.p>
+                </div>
               </Link>
             </motion.div>
           ))

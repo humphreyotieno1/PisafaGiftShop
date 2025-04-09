@@ -84,6 +84,7 @@ export async function GET(request) {
       categories: categories.map(category => ({
         id: category.id,
         name: category.name,
+        image: category.image,
         productCount: category._count.Product,
         slug: category.name.toLowerCase().replace(/\s+/g, '-'),
         createdAt: category.createdAt,
@@ -149,13 +150,17 @@ export async function POST(request) {
 
     // Create the category
     const category = await prisma.category.create({
-      data: { name }
+      data: { 
+        name,
+        image: body.image // This can be either base64 data or null
+      }
     })
 
     return NextResponse.json({ 
       category: {
         id: category.id,
         name: category.name,
+        image: category.image,
         slug: category.name.toLowerCase().replace(/\s+/g, '-'),
         productCount: 0,
         createdAt: category.createdAt,
@@ -166,6 +171,95 @@ export async function POST(request) {
     console.error("Error creating category:", error)
     return NextResponse.json(
       { error: "Failed to create category", details: error.message },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/admin/categories/[id] - Update a category
+export async function PUT(request, { params }) {
+  try {
+    const { isAuthenticated, isAdmin } = await verifyAuth()
+    
+    if (!isAuthenticated || !isAdmin) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const { id } = params
+    const body = await request.json()
+    
+    // Validate required fields
+    if (!body.name?.trim()) {
+      return NextResponse.json(
+        { error: "Category name is required" },
+        { status: 400 }
+      )
+    }
+
+    // Format category name
+    const name = body.name.trim()
+      .split(" ")
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+
+    // Check if category exists
+    const existingCategory = await prisma.category.findUnique({
+      where: { id }
+    })
+
+    if (!existingCategory) {
+      return NextResponse.json(
+        { error: "Category not found" },
+        { status: 404 }
+      )
+    }
+
+    // Check if new name conflicts with another category
+    if (name !== existingCategory.name) {
+      const nameConflict = await prisma.category.findFirst({
+        where: {
+          name: {
+            equals: name,
+            mode: "insensitive"
+          },
+          NOT: {
+            id: id
+          }
+        }
+      })
+
+      if (nameConflict) {
+        return NextResponse.json(
+          { error: "Category name already exists" },
+          { status: 409 }
+        )
+      }
+    }
+
+    // Update the category
+    const category = await prisma.category.update({
+      where: { id },
+      data: { 
+        name,
+        image: body.image // This can be either base64 data or null
+      }
+    })
+
+    return NextResponse.json({ 
+      category: {
+        id: category.id,
+        name: category.name,
+        image: category.image,
+        slug: category.name.toLowerCase().replace(/\s+/g, '-'),
+        productCount: 0,
+        createdAt: category.createdAt,
+        updatedAt: category.updatedAt
+      }
+    })
+  } catch (error) {
+    console.error("Error updating category:", error)
+    return NextResponse.json(
+      { error: "Failed to update category", details: error.message },
       { status: 500 }
     )
   }

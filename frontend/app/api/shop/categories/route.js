@@ -18,6 +18,7 @@ export async function GET() {
     const formattedCategories = categories.map(category => ({
       id: category.id,
       name: category.name,
+      image: category.image,
       productCount: category._count.Product,
       slug: category.name.toLowerCase().replace(/\s+/g, '-'),
       createdAt: category.createdAt,

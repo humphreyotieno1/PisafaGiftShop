@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { motion } from "framer-motion"
-import { Plus, Edit, Trash2, MoreHorizontal, Search } from "lucide-react"
+import { Plus, Edit, Trash2, MoreHorizontal, Search, Image as ImageIcon, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -41,10 +41,14 @@ export default function CategoriesPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingCategory, setEditingCategory] = useState(null)
   const [formData, setFormData] = useState({
-    name: ''
+    name: '',
+    imageData: null,
+    imageUrl: ''
   })
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
   const [categoryToDelete, setCategoryToDelete] = useState(null)
+  const [dragActive, setDragActive] = useState(false)
+  const [previewImage, setPreviewImage] = useState('')
 
   useEffect(() => {
     if (user && !isAdmin) {
@@ -82,6 +86,76 @@ export default function CategoriesPage() {
     }
   }
 
+  const handleDrag = useCallback((e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setDragActive(true)
+    } else if (e.type === "dragleave") {
+      setDragActive(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback(async (e) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    const file = e.dataTransfer?.files?.[0]
+    if (file) {
+      await handleImageUpload(file)
+    }
+  }, [])
+
+  const handleImageUpload = async (file) => {
+    try {
+      // Validate file type
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp']
+      if (!validTypes.includes(file.type)) {
+        toast({
+          title: "Error",
+          description: "Invalid file type. Only JPG, PNG, and WEBP files are allowed.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Validate file size (1MB)
+      if (file.size > 1 * 1024 * 1024) {
+        toast({
+          title: "Error",
+          description: "File size too large. Maximum size is 1MB.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Convert file to base64
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        const base64Data = reader.result
+        setFormData(prev => ({
+          ...prev,
+          imageData: base64Data,
+          imageUrl: null // Clear the URL if we're using base64 data
+        }))
+        setPreviewImage(base64Data)
+        toast({
+          title: "Success",
+          description: "Image uploaded successfully!",
+        })
+      }
+      reader.readAsDataURL(file)
+    } catch (error) {
+      console.error("Error handling image:", error)
+      toast({
+        title: "Error",
+        description: "Failed to process image",
+        variant: "destructive",
+      })
+    }
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     try {
@@ -96,7 +170,10 @@ export default function CategoriesPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          name: formData.name,
+          image: formData.imageData // Send the base64 image data directly
+        }),
       })
       
       if (!response.ok) {
@@ -106,7 +183,8 @@ export default function CategoriesPage() {
       
       await fetchCategories()
       setIsDialogOpen(false)
-      setFormData({ name: '' })
+      setFormData({ name: '', imageData: null, imageUrl: '' })
+      setPreviewImage('')
       setEditingCategory(null)
       
       toast({
@@ -160,16 +238,22 @@ export default function CategoriesPage() {
   const handleAddCategory = () => {
     setEditingCategory(null)
     setFormData({
-      name: ''
+      name: '',
+      imageData: null,
+      imageUrl: ''
     })
+    setPreviewImage('')
     setIsDialogOpen(true)
   }
 
   const handleEdit = (category) => {
     setEditingCategory(category)
     setFormData({
-      name: category.name
+      name: category.name,
+      imageData: category.image || null,
+      imageUrl: ''
     })
+    setPreviewImage(category.image || '')
     setIsDialogOpen(true)
   }
 
@@ -233,6 +317,7 @@ export default function CategoriesPage() {
               <table className="w-full">
                 <thead>
                   <tr className="bg-muted/50">
+                    <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Image</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Name</th>
                     <th className="whitespace-nowrap px-4 py-3 text-left font-medium">Products</th>
                     <th className="whitespace-nowrap px-4 py-3 text-right font-medium">Actions</th>
@@ -242,27 +327,36 @@ export default function CategoriesPage() {
                   {loading ? (
                     [...Array(5)].map((_, index) => (
                       <tr key={index} className="border-t">
-                        <td colSpan={3} className="px-4 py-3">
+                        <td colSpan={4} className="px-4 py-3">
                           <div className="h-12 animate-pulse rounded-md bg-muted" />
                         </td>
                       </tr>
                     ))
                   ) : filteredCategories.length === 0 ? (
                     <tr className="border-t">
-                      <td colSpan={3} className="px-4 py-8 text-center text-muted-foreground">
-                        No categories found. Try adjusting your search or add a new category.
+                      <td colSpan={4} className="px-4 py-3 text-center text-muted-foreground">
+                        No categories found
                       </td>
                     </tr>
                   ) : (
                     filteredCategories.map((category) => (
-                      <tr key={category.name} className="border-t">
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <div className="font-medium">{category.name}</div>
+                      <tr key={category.id} className="border-t">
+                        <td className="px-4 py-3">
+                          {category.image ? (
+                            <img
+                              src={category.image}
+                              alt={category.name}
+                              className="h-10 w-10 object-cover rounded-md"
+                            />
+                          ) : (
+                            <div className="h-10 w-10 rounded-md bg-muted flex items-center justify-center">
+                              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                            </div>
+                          )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
-                          <div className="text-muted-foreground">{category.productCount || 0}</div>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-right">
+                        <td className="px-4 py-3">{category.name}</td>
+                        <td className="px-4 py-3">{category.productCount}</td>
+                        <td className="px-4 py-3 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button variant="ghost" size="icon">
@@ -275,8 +369,8 @@ export default function CategoriesPage() {
                                 Edit
                               </DropdownMenuItem>
                               <DropdownMenuItem
-                                className="text-red-500"
                                 onClick={() => handleDelete(category.id)}
+                                className="text-destructive"
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Delete
@@ -298,13 +392,9 @@ export default function CategoriesPage() {
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {editingCategory ? 'Edit Category' : 'Add New Category'}
-            </DialogTitle>
+            <DialogTitle>{editingCategory ? 'Edit Category' : 'Add Category'}</DialogTitle>
             <DialogDescription>
-              {editingCategory
-                ? 'Update the category details below.'
-                : 'Enter the details for the new category below.'}
+              {editingCategory ? 'Update the category details' : 'Create a new category'}
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -319,7 +409,47 @@ export default function CategoriesPage() {
                 required
               />
             </div>
-
+            <div className="space-y-2">
+              <Label>Category Image</Label>
+              <div
+                className={`relative flex h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed transition-colors ${
+                  dragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25 hover:border-primary'
+                }`}
+                onDragEnter={handleDrag}
+                onDragLeave={handleDrag}
+                onDragOver={handleDrag}
+                onDrop={handleDrop}
+                onClick={() => document.getElementById('image-upload')?.click()}
+              >
+                <input
+                  id="image-upload"
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (file) handleImageUpload(file)
+                  }}
+                />
+                {previewImage ? (
+                  <img
+                    src={previewImage}
+                    alt="Preview"
+                    className="h-full w-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Drag and drop or click to upload
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      JPG, PNG or WEBP (max. 1MB)
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancel
