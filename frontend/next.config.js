@@ -10,18 +10,9 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'source.unsplash.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'images.unsplash.com',
-        pathname: '/**',
-      },
-      {
-        protocol: 'https',
-        hostname: 'plus.unsplash.com',
-        pathname: '/**',
+        hostname: 'res.cloudinary.com',
+        port: '',
+        pathname: '/dqveipmsp/**',
       },
     ],
     dangerouslyAllowSVG: true,
@@ -29,7 +20,7 @@ const nextConfig = {
     contentSecurityPolicy: "default-src 'self'; script-src 'none'; sandbox;",
   },
   experimental: {
-    optimizeCss: true,
+    // Removing optimizeCss as it requires critters dependency
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons', 'framer-motion'],
     scrollRestoration: true,
   },
@@ -39,7 +30,7 @@ const nextConfig = {
   webpack: (config) => {
     config.resolve.fallback = {
       ...config.resolve.fallback,
-      crypto: require.resolve("crypto-browserify"),
+      fs: false,
       stream: require.resolve("stream-browserify"),
     }
     // Optimize SVG loading

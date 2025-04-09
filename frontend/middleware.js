@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyToken } from './lib/auth-service';
+import { jwtVerify } from 'jose';
 
 // Paths that require authentication
 const protectedPaths = [
@@ -28,6 +28,18 @@ const publicPaths = [
   '/blog',
 ];
 
+// Simple token verification function that works in Edge Runtime
+async function verifyTokenEdge(token) {
+  try {
+    const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key');
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return payload;
+  } catch (error) {
+    console.error('Token verification failed:', error);
+    return null;
+  }
+}
+
 export async function middleware(request) {
   const { pathname } = request.nextUrl;
   
@@ -50,43 +62,11 @@ export async function middleware(request) {
       return NextResponse.redirect(url);
     }
     
-    // Verify the token
-    const payload = await verifyToken(token);
+    // Verify the token using the Edge-compatible function
+    const payload = await verifyTokenEdge(token);
     
     if (!payload) {
-      // Try to refresh the token if it's expired
-      const refreshToken = request.cookies.get('refreshToken')?.value;
-      if (refreshToken) {
-        try {
-          const refreshResponse = await fetch(new URL('/api/auth/refresh', request.url), {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${refreshToken}`
-            }
-          });
-
-          if (refreshResponse.ok) {
-            const { token: newToken } = await refreshResponse.json();
-            
-            // Create a new response with the refreshed token
-            const response = NextResponse.next();
-            response.cookies.set('token', newToken, {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === 'production',
-              sameSite: 'lax',
-              path: '/',
-              maxAge: 60 * 60 * 24 * 7, // 1 week
-            });
-            
-            return response;
-          }
-        } catch (error) {
-          console.error('Token refresh failed:', error);
-        }
-      }
-      
-      // If refresh failed or no refresh token, redirect to login
+      // If token verification failed, redirect to login
       const url = new URL('/auth/login', request.url);
       url.searchParams.set('callbackUrl', encodeURI(request.url));
       return NextResponse.redirect(url);
@@ -122,12 +102,11 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except for the ones starting with:
-     * - api (API routes)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
      * - public folder
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico|public).*)',
   ],
 };

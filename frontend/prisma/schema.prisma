@@ -80,12 +80,12 @@ model Review {
 }
 
 model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
-  image       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  Product     Product[]
+  id        String    @id @default(cuid())
+  name      String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  image     String?
+  Product   Product[]
 }
 
 enum Role {

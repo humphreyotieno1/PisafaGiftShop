@@ -1,16 +1,30 @@
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
-import bcrypt from 'bcryptjs'
+
+// Import bcrypt conditionally to avoid Edge Runtime errors
+let bcrypt;
+if (typeof window === 'undefined') {
+  // Server-side only
+  bcrypt = require('bcryptjs');
+}
 
 const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'your-secret-key')
 
 // Password hashing using bcrypt
 export async function hashPassword(password) {
+  // Only available server-side
+  if (!bcrypt) {
+    throw new Error('bcrypt is only available on the server side');
+  }
   return bcrypt.hash(password, 10)
 }
 
 // Password verification using bcrypt
 export async function verifyPassword(password, hash) {
+  // Only available server-side
+  if (!bcrypt) {
+    throw new Error('bcrypt is only available on the server side');
+  }
   return bcrypt.compare(password, hash)
 }
 
@@ -37,6 +51,12 @@ export async function verifyToken(token) {
 // Verify authentication from request
 export async function verifyAuth() {
   try {
+    // This function only works on the server
+    if (typeof window !== 'undefined') {
+      console.error('verifyAuth can only be called on the server');
+      return { isAuthenticated: false, isAdmin: false };
+    }
+
     const cookieStore = cookies()
     const token = cookieStore.get('token')?.value
 
@@ -79,6 +99,12 @@ export async function verifyAuth() {
 
 // Set auth cookies
 export function setAuthCookies(response, token) {
+  // This function only works on the server
+  if (typeof window !== 'undefined') {
+    console.error('setAuthCookies can only be called on the server');
+    return response;
+  }
+
   if (!response || !response.cookies) {
     console.error('Invalid response object in setAuthCookies')
     return response
@@ -101,6 +127,12 @@ export function setAuthCookies(response, token) {
 }
 
 export function getTokenFromCookies() {
+  // This function only works on the server
+  if (typeof window !== 'undefined') {
+    console.error('getTokenFromCookies can only be called on the server');
+    return null;
+  }
+
   const cookieStore = cookies()
   return cookieStore.get('token')?.value
 }

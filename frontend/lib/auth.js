@@ -1,18 +1,31 @@
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
+// Import bcrypt conditionally to avoid Edge Runtime errors
+let bcrypt;
+let jwt;
+if (typeof window === 'undefined') {
+  // Server-side only
+  bcrypt = require('bcryptjs');
+  jwt = require('jsonwebtoken');
+}
+
+import { jwtVerify, SignJWT } from 'jose';
 import { prisma } from './prisma';
 
 // Ensure JWT_SECRET is set
-if (!process.env.JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is not set');
+if (typeof process !== 'undefined' && !process.env.JWT_SECRET) {
+  console.warn('JWT_SECRET environment variable is not set');
 }
 
-const JWT_SECRET = process.env.JWT_SECRET;
+const JWT_SECRET = typeof process !== 'undefined' ? process.env.JWT_SECRET : 'your-secret-key';
+const JWT_SECRET_BUFFER = new TextEncoder().encode(JWT_SECRET);
 
 /**
  * Hash a password
  */
 export async function hashPassword(password) {
+  // Only available server-side
+  if (!bcrypt) {
+    throw new Error('bcrypt is only available on the server side');
+  }
   return await bcrypt.hash(password, 10);
 }
 
@@ -20,28 +33,49 @@ export async function hashPassword(password) {
  * Compare a password with a hash
  */
 export async function comparePassword(password, hash) {
+  // Only available server-side
+  if (!bcrypt) {
+    throw new Error('bcrypt is only available on the server side');
+  }
   return await bcrypt.compare(password, hash);
 }
 
 /**
  * Generate a JWT token
  */
-export function generateToken(user) {
+export async function generateToken(user) {
   const payload = {
     id: user.id,
     email: user.email,
     role: user.role,
   };
 
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  // Use jose in Edge Runtime, jsonwebtoken in Node.js
+  if (jwt) {
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' });
+  } else {
+    // Edge-compatible JWT signing
+    return new SignJWT(payload)
+      .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
+      .setExpirationTime('7d')
+      .sign(JWT_SECRET_BUFFER);
+  }
 }
 
 /**
  * Verify a JWT token
  */
-export function verifyToken(token) {
+export async function verifyToken(token) {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    // Use jose in Edge Runtime, jsonwebtoken in Node.js
+    if (jwt) {
+      return jwt.verify(token, JWT_SECRET);
+    } else {
+      // Edge-compatible JWT verification
+      const { payload } = await jwtVerify(token, JWT_SECRET_BUFFER);
+      return payload;
+    }
   } catch (error) {
     console.error('Token verification failed:', error.message);
     return null;
@@ -53,6 +87,11 @@ export function verifyToken(token) {
  */
 export async function createSession(userId) {
   try {
+    // This function should only be called server-side
+    if (typeof window !== 'undefined') {
+      throw new Error('createSession can only be called on the server side');
+    }
+    
     // First verify the user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -63,7 +102,7 @@ export async function createSession(userId) {
     }
 
     // Use the same token generation as generateToken for consistency
-    const token = generateToken(user);
+    const token = await generateToken(user);
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
@@ -98,7 +137,7 @@ export async function createSession(userId) {
     }
     
     return { 
-      token: generateToken(user),
+      token: await generateToken(user),
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
     };
   }
@@ -111,7 +150,7 @@ export async function getUserFromToken(token) {
   if (!token) return null;
   
   try {
-    const decoded = verifyToken(token);
+    const decoded = await verifyToken(token);
     if (!decoded) return null;
     
     const userId = decoded.id;
@@ -162,7 +201,11 @@ export async function verifyAuth(request) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = await verifyToken(token);
+    if (!decoded) {
+      return { user: null, error: 'Invalid token' };
+    }
+    
     const userId = decoded.id || decoded.userId;
     
     if (!userId) {
@@ -184,9 +227,26 @@ export async function verifyAuth(request) {
     // If token is expired but we can extract the user ID, try to refresh
     if (error.name === 'TokenExpiredError' && token) {
       try {
-        // Even though the token is expired, we can still decode it to get the user ID
-        const decoded = jwt.decode(token);
-        const userId = decoded.id || decoded.userId;
+        // Even though the token is expired, we can still decode it
+        let userId;
+        
+        if (jwt) {
+          // Node.js environment
+          const decoded = jwt.decode(token);
+          userId = decoded.id || decoded.userId;
+        } else {
+          // Edge environment - we can't easily decode without verification in jose
+          // This is a simplified approach
+          try {
+            const tokenParts = token.split('.');
+            if (tokenParts.length === 3) {
+              const payload = JSON.parse(atob(tokenParts[1]));
+              userId = payload.id || payload.userId;
+            }
+          } catch (e) {
+            console.error('Error decoding token:', e);
+          }
+        }
         
         if (userId) {
           const user = await prisma.user.findUnique({
@@ -195,7 +255,7 @@ export async function verifyAuth(request) {
           
           if (user) {
             // Generate a new token
-            const newToken = generateToken(user);
+            const newToken = await generateToken(user);
             
             // Don't return the password
             const { password, ...userWithoutPassword } = user;
@@ -238,7 +298,9 @@ export async function getToken(request) {
   }
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = await verifyToken(token);
+    if (!decoded) return null;
+    
     return {
       token,
       userId: decoded.id || decoded.userId,
