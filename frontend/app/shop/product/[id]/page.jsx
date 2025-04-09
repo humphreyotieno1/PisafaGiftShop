@@ -127,8 +127,8 @@ export default function ProductPage() {
       <div className="mb-6 flex items-center text-sm text-muted-foreground">
         <Link href="/shop" className="hover:text-primary">Shop</Link>
         <ChevronRight className="h-4 w-4 mx-2" />
-        <Link href={`/shop?category=${product.category?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-primary">
-          {product.category}
+        <Link href={`/shop?category=${product.categoryName?.toLowerCase().replace(/\s+/g, '-')}`} className="hover:text-primary">
+          {product.categoryName || 'Uncategorized'}
         </Link>
         <ChevronRight className="h-4 w-4 mx-2" />
         <span className="text-foreground truncate">{product.name}</span>
@@ -231,12 +231,21 @@ export default function ProductPage() {
             <div className="mt-8">
               <h2 className="text-lg font-semibold mb-4">Specifications</h2>
               <div className="grid grid-cols-2 gap-4">
-                {Object.entries(product.specs).map(([key, value], index) => (
-                  <div key={index}>
-                    <p className="text-sm text-muted-foreground">{key}</p>
-                    <p className="font-medium">{value}</p>
-                  </div>
-                ))}
+                {Array.isArray(product.specs) ? (
+                  product.specs.map((spec, index) => (
+                    <div key={index}>
+                      <p className="text-sm text-muted-foreground">{spec.name}</p>
+                      <p className="font-medium">{spec.value}</p>
+                    </div>
+                  ))
+                ) : (
+                  Object.entries(product.specs).map(([key, value], index) => (
+                    <div key={index}>
+                      <p className="text-sm text-muted-foreground">{key}</p>
+                      <p className="font-medium">{value}</p>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
