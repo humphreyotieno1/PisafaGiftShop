@@ -24,12 +24,14 @@ class User(Base):
 
     carts = relationship("Cart", back_populates="user")
     orders = relationship("Order", back_populates="user")
-    wishlists = relationship("Wishlist", back_populates="user")
+    wishlists = relationship("Wishlist", back_populates="user") 
 
 class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
+    description = Column(String)
+    image_url = Column(String, nullable=True)
 
     products = relationship("Product", back_populates="category")
 

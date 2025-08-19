@@ -1,5 +1,5 @@
 from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status, Request
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Form
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from slowapi import Limiter
@@ -33,7 +33,8 @@ async def register(
 async def login_for_access_token(
     request: Request,
     form_data: OAuth2PasswordRequestForm = Depends(),
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    remember_me: bool = Form(False)
 ):
     user = await crud.authenticate_user(db, form_data.username, form_data.password)
     if not user:
@@ -43,22 +44,33 @@ async def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    # Set token expiration based on remember_me
+    if remember_me:
+        # Longer expiration for "Remember Me"
+        access_token_expires = timedelta(days=7)  # 1 week for access token
+        refresh_token_expires = timedelta(days=30)  # 1 month for refresh token
+    else:
+        # Standard expiration
+        access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
+        refresh_token_expires = timedelta(days=utils.REFRESH_TOKEN_EXPIRE_DAYS)
+    
     # Create access token
-    access_token_expires = timedelta(minutes=utils.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = utils.create_access_token(
         data={"sub": user.username, "role": user.role.value},
         expires_delta=access_token_expires
     )
     
-    # Create refresh token
+    # Create refresh token with the same expiration logic
     refresh_token = utils.create_refresh_token(
-        data={"sub": user.username, "role": user.role.value}
+        data={"sub": user.username, "role": user.role.value},
+        expires_delta=refresh_token_expires if remember_me else None
     )
     
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "refresh_token": refresh_token
+        "refresh_token": refresh_token,
+        "expires_in": int(access_token_expires.total_seconds())
     }
 
 @router.post("/refresh", response_model=schemas.Token)
