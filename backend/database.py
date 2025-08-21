@@ -12,8 +12,8 @@ SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL").replace("?sslmode=require", 
 # Create async engine with proper SSL configuration
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
-    echo=True,  # Set to False in production
-    connect_args={"ssl": True},  # Enable SSL explicitly
+    echo=False,  # Disabled for production; enable for debugging
+    connect_args={"ssl": True},  # Enable SSL for Neon DB
 )
 
 AsyncSessionLocal = sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)

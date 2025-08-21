@@ -1,159 +1,147 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Body
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
-from sqlalchemy.orm import selectinload
-from backend import schemas, crud, models, services
+from sqlalchemy import select
+from backend import schemas, crud, models, utils
+from backend.services import mpesa as mpesa_service
 from backend.database import get_db
-from backend import utils
 from slowapi import Limiter
 from slowapi.util import get_remote_address
+from typing import Union, Optional
 
-router = APIRouter(prefix="", tags=["user"])
+router = APIRouter(prefix="/user", tags=["user"])
 limiter = Limiter(key_func=get_remote_address)
 
-@router.get("/categories/", response_model=list[schemas.Category])
-@limiter.limit("100/minute")
-async def read_categories(request: Request, db: AsyncSession = Depends(get_db)):
-    return await crud.get_categories(db)
-
-@router.get("/categories/{category_id}", response_model=schemas.Category)
-@limiter.limit("100/minute")
-async def read_category(request: Request, category_id: int, db: AsyncSession = Depends(get_db)):
-    category = await crud.get_category(db, category_id)
-    if category is None:
-        raise HTTPException(status_code=404, detail="Category not found")
-    return category
-
-@router.get("/products/", response_model=list[schemas.Product])
-@limiter.limit("100/minute")
-async def read_products(request: Request, db: AsyncSession = Depends(get_db)):
-    return await crud.get_products(db)
-
-@router.get("/products/{product_id}", response_model=schemas.Product)
-@limiter.limit("100/minute")
-async def read_product(request: Request, product_id: int, db: AsyncSession = Depends(get_db)):
-    product = await crud.get_product(db, product_id)
-    if product is None:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
-
-@router.get("/profile/", response_model=schemas.User)
+@router.get("/profile", response_model=schemas.User, summary="Get user profile")
 @limiter.limit("100/minute")
 async def get_profile(
-    request: Request, 
-    current_user: models.User = Depends(utils.get_current_user),
+    request: Request,
+    current_user: models.User = Depends(utils.get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    # Get user with all relationships
-    result = await db.execute(
-        select(models.User)
-        .options(
-            selectinload(models.User.orders).selectinload(models.Order.items),
-            selectinload(models.User.wishlists).selectinload(models.Wishlist.product),
-            selectinload(models.User.carts).selectinload(models.Cart.product)
-        )
-        .where(models.User.id == current_user.id)
-    )
-    user = result.scalars().first()
+    """Get the authenticated user's profile with orders, cart, and wishlist."""
+    user = await crud.get_user(db, current_user.id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-@router.put("/profile/", response_model=schemas.User)
+@router.put("/profile", response_model=schemas.User, summary="Update user profile")
 @limiter.limit("10/minute")
-async def update_profile(request: Request, user_update: schemas.UserUpdate, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
+async def update_profile(
+    request: Request,
+    user_update: schemas.UserUpdate,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update the authenticated user's profile (email, full_name, phone, address)."""
+    if user_update.email and user_update.email != current_user.email:
+        existing = await crud.get_user_by_email(db, user_update.email)
+        if existing:
+            raise HTTPException(status_code=400, detail="Email already registered")
     updated_user = await crud.update_user(db, current_user.id, user_update)
-    if updated_user is None:
+    if not updated_user:
         raise HTTPException(status_code=404, detail="User not found")
     return updated_user
 
-@router.get("/cart/", response_model=schemas.CartResponse)
+# CART CRUD
+@router.get("/cart", response_model=schemas.CartResponse, summary="Get user cart")
 @limiter.limit("100/minute")
 async def read_cart(
     request: Request,
-    current_user: models.User = Depends(utils.get_current_user),
+    current_user: models.User = Depends(utils.get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get user's cart with calculated totals"""
+    """Get the authenticated user's cart with item details and totals."""
     return await crud.get_cart_with_totals(db, current_user.id)
 
-@router.get("/cart/{cart_id}", response_model=schemas.Cart)
-@limiter.limit("100/minute")
-async def read_cart_item(request: Request, cart_id: int, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.get_cart_item(db, cart_id, current_user.id)
-
-@router.post("/cart/", response_model=schemas.Cart)
+@router.post("/cart", response_model=schemas.CartResponse, summary="Add item to cart")
 @limiter.limit("10/minute")
-async def add_to_cart(request: Request, cart: schemas.CartBase, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.add_to_cart(db, cart, current_user.id)
-
-@router.delete("/cart/{cart_id}")
-@limiter.limit("10/minute")
-async def remove_from_cart(request: Request, cart_id: int, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    success = await crud.remove_from_cart(db, cart_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Cart item not found")
-    return {"detail": "Item removed from cart"}
-
-@router.delete("/cart/items/{product_id}")
-@limiter.limit("10/minute")
-async def remove_cart_item(
+async def add_to_cart(
     request: Request,
-    product_id: int,
-    current_user: models.User = Depends(utils.get_current_user),
+    cart_item: schemas.CartAddRequest,
+    current_user: models.User = Depends(utils.get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Remove a specific product from the user's cart"""
+    """Add a product to the authenticated user's cart."""
+    cart = await crud.add_to_cart(db, cart_item, current_user.id)
+    return await crud.get_cart_with_totals(db, current_user.id)
+
+@router.delete("/cart/{product_id}", response_model=schemas.Msg, summary="Remove item from cart")
+@limiter.limit("10/minute")
+async def remove_from_cart(
+    request: Request,
+    product_id: int,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Remove a specific product from the authenticated user's cart."""
     success = await crud.remove_cart_item(db, current_user.id, product_id)
     if not success:
-        raise HTTPException(status_code=404, detail="Cart item not found")
-    return {"detail": "Item removed from cart"}
+        raise HTTPException(status_code=404, detail="Product not found in cart")
+    return {"detail": "Product removed from cart"}
 
-@router.post("/cart/checkout/", response_model=schemas.CheckoutResponse)
+@router.put("/cart/{product_id}", response_model=schemas.CartResponse, summary="Update cart item quantity")
+@limiter.limit("30/minute")
+async def update_cart_item(
+    request: Request,
+    product_id: int,
+    update_data: schemas.CartUpdateRequest,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Update the quantity of a product in the user's cart."""
+    updated_cart = await crud.update_cart_item_quantity(db, current_user.id, product_id, update_data.quantity)
+    if not updated_cart:
+        raise HTTPException(status_code=404, detail="Cart or product not found")
+    return await crud.get_cart_with_totals(db, current_user.id)
+
+@router.post("/cart/checkout", response_model=schemas.CheckoutResponse, summary="Checkout cart")
 @limiter.limit("5/minute")
 async def checkout_cart(
     request: Request,
-    checkout_data: schemas.CheckoutBase,
-    current_user: models.User = Depends(utils.get_current_user),
+    checkout_data: schemas.CheckoutCreate,
+    current_user: models.User = Depends(utils.get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Process cart checkout and create an order"""
-    # Get cart with totals
-    cart_data = await crud.get_cart_with_totals(db, current_user.id)
-    if not cart_data["items"]:
+    """Checkout the user's cart, create an order, and initiate payment."""
+    if checkout_data.payment_method.lower() != "mpesa":
+        raise HTTPException(status_code=400, detail="Only M-Pesa is supported")
+    
+    cart = await crud.get_cart_with_totals(db, current_user.id)
+    if not cart or not cart.products:
         raise HTTPException(status_code=400, detail="Cart is empty")
     
-    # Create order items
+    # Validate stock for all products
+    for item in cart.products:
+        product = await crud.get_product(db, item["product_id"])
+        if not product:
+            raise HTTPException(status_code=404, detail=f"Product {item['product_id']} not found")
+        if product.stock < item["quantity"]:
+            raise HTTPException(status_code=400, detail=f"Insufficient stock for product {item['product_id']}")
+    
+    cart_data = await crud.get_cart_with_totals(db, current_user.id)
     order_items = [
         schemas.OrderItemBase(
             product_id=item["product_id"],
             quantity=item["quantity"],
-            price=item["product"]["price"]  # Store price at time of order
-        ) for item in cart_data["items"]
+            price=item["product"]["price"]
+        ) for item in cart_data["products"]
     ]
-    
-    order_create = schemas.OrderCreate(
-        items=order_items,
-        total=cart_data["total"]
-    )
-    
-    # Create order (this will also validate stock)
+    order_create = schemas.OrderCreate(items=order_items, total=cart_data["total"])
     order = await crud.create_order(db, order_create, current_user.id)
+    mpesa_response = await mpesa_service.initiate_stk_push(checkout_data.phone_number, order.total, order.id)
+    checkout = await crud.create_checkout(db, checkout_data, order.id)
+    checkout.mpesa_transaction_id = mpesa_response.get("CheckoutRequestID")
+    await db.commit()
+    await db.refresh(checkout)
+    payment = schemas.PaymentBase(amount=order.total, transaction_id=checkout.mpesa_transaction_id)
+    await crud.create_payment(db, payment, checkout.id)
     
-    # Clear the cart after successful order
-    await db.execute(delete(models.Cart).where(models.Cart.user_id == current_user.id))
+    # Clear the cart
+    cart = await crud.get_cart(db, current_user.id)
+    cart.products = []
     await db.commit()
     
-    # Create checkout
-    checkout = await crud.create_checkout(
-        db=db,
-        checkout=checkout_data,
-        order_id=order.id
-    )
-    
-    # Get order summary with all details
     order_summary = await crud.get_order_summary(db, order.id)
-    
     return {
         "message": "Order created successfully",
         "order_id": order.id,
@@ -161,159 +149,137 @@ async def checkout_cart(
         "order_summary": order_summary
     }
 
-@router.post("/orders/", response_model=schemas.Order)
-@limiter.limit("5/minute")
-async def create_order(request: Request, order: schemas.OrderCreate, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.create_order(db, order, current_user.id)
-
-@router.get("/orders/", response_model=list[schemas.Order])
+@router.get("/wishlist", response_model=schemas.WishlistResponse, summary="Get user wishlist")
 @limiter.limit("100/minute")
-async def read_orders(request: Request, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
+async def read_wishlist(
+    request: Request,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get the authenticated user's wishlist."""
+    wishlist = await crud.get_wishlist_with_details(db, current_user.id)
+    if not wishlist:
+        return schemas.WishlistResponse(id=None, products=[])
+    return wishlist
+
+async def get_wishlist(db: AsyncSession, user_id: int) -> Optional[models.Wishlist]:
+    result = await db.execute(
+        select(models.Wishlist).filter(models.Wishlist.user_id == user_id)
+    )
+    wishlist = result.scalars().first()
+    if wishlist and wishlist.products:
+        product_ids = wishlist.products
+        products_result = await db.execute(
+            select(models.Product).filter(models.Product.id.in_(product_ids))
+        )
+        products = products_result.scalars().all()
+        wishlist.products = [
+            {
+                "id": p.id,
+                "name": p.name,
+                "price": float(p.price),
+                "image_url": p.image_url
+            } for p in products if p.id in product_ids
+        ]
+    return wishlist
+
+@router.post("/wishlist", response_model=schemas.WishlistResponse, summary="Add item to wishlist")
+@limiter.limit("10/minute")
+async def add_to_wishlist(
+    request: Request,
+    wishlist_item: schemas.WishlistAddRequest,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Add a product to the authenticated user's wishlist."""
+    await crud.add_to_wishlist(db, wishlist_item, current_user.id)
+    return await crud.get_wishlist_with_details(db, current_user.id)
+
+async def add_to_wishlist(db: AsyncSession, wishlist_item: schemas.WishlistAddRequest, user_id: int) -> models.Wishlist:
+    wishlist = await get_wishlist(db, user_id)
+    if not wishlist:
+        wishlist = await crud.create_wishlist(db, user_id)
+    
+    product_id = wishlist_item.product_id
+    product = await crud.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    if product_id in wishlist.products:
+        raise HTTPException(status_code=400, detail="Product already in wishlist")
+    
+    wishlist.products.append(product_id)
+    await db.commit()
+    await db.refresh(wishlist)
+    return await get_wishlist(db, user_id)  # Return with detailed products
+
+@router.delete("/wishlist/{product_id}", response_model=schemas.Msg, summary="Remove item from wishlist")
+@limiter.limit("10/minute")
+async def remove_from_wishlist(
+    request: Request,
+    product_id: int,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Remove a specific product from the authenticated user's wishlist."""
+    success = await crud.remove_wishlist_item(db, current_user.id, product_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Product not found in wishlist")
+    return {"detail": "Product removed from wishlist"}
+
+# Removed PUT wishlist endpoint as requested
+
+async def update_wishlist_item(db: AsyncSession, user_id: int, product_id: int, is_active: bool) -> models.Wishlist:
+    wishlist = await get_wishlist(db, user_id)
+    if not wishlist:
+        wishlist = await crud.create_wishlist(db, user_id)
+    
+    product = await crud.get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if is_active and product_id not in wishlist.products:
+        wishlist.products.append(product_id)
+    elif not is_active and product_id in wishlist.products:
+        wishlist.products.remove(product_id)
+    
+    await db.commit()
+    await db.refresh(wishlist)
+    return await get_wishlist(db, user_id)  # Return with detailed products
+
+@router.get("/orders", response_model=list[schemas.Order], summary="Get user orders")
+@limiter.limit("100/minute")
+async def read_orders(
+    request: Request,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get all orders for the authenticated user."""
     return await crud.get_user_orders(db, current_user.id)
 
-@router.get("/orders/{order_id}", response_model=schemas.Order)
+@router.get("/orders/{order_id}", response_model=schemas.Order, summary="Get order details")
 @limiter.limit("100/minute")
-async def read_order(request: Request, order_id: int, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.get_order(db, order_id, current_user.id)
+async def read_order(
+    request: Request,
+    order_id: int,
+    current_user: models.User = Depends(utils.get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get details of a specific order for the authenticated user."""
+    order = await crud.get_order(db, order_id)
+    if not order or order.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return order
 
-@router.get("/orders/{order_id}/summary", response_model=schemas.OrderSummaryResponse)
+@router.get("/orders/{order_id}/summary", response_model=schemas.OrderSummaryResponse, summary="Get order summary")
 @limiter.limit("100/minute")
 async def get_order_summary(
     request: Request,
     order_id: int,
-    current_user: models.User = Depends(utils.get_current_user),
+    current_user: models.User = Depends(utils.get_current_active_user),
     db: AsyncSession = Depends(get_db)
 ):
-    """Get detailed order summary with totals"""
-    # Verify the order belongs to the user
+    """Get detailed summary of a specific order."""
     order = await crud.get_order(db, order_id)
     if not order or order.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Order not found")
-    
     return await crud.get_order_summary(db, order_id)
-
-@router.get("/order_items/", response_model=list[schemas.OrderItemBase])
-@limiter.limit("100/minute")
-async def read_order_items(request: Request, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.get_user_order_items(db, current_user.id)
-
-@router.get("/order_items/{order_item_id}", response_model=schemas.OrderItemBase)
-@limiter.limit("100/minute")
-async def read_order_item(request: Request, order_item_id: int, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.get_order_item(db, order_item_id, current_user.id)
-
-@router.delete("/order_items/{order_item_id}")
-@limiter.limit("10/minute")
-async def remove_order_item(
-    request: Request,
-    order_item_id: int,
-    current_user: models.User = Depends(utils.get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Remove an item from an order (if the order belongs to the user)"""
-    success = await crud.delete_order_item(db, order_item_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Order item not found or access denied")
-    return {"detail": "Order item removed"}
-
-@router.get("/wishlist/", response_model=list[schemas.Wishlist])
-@limiter.limit("100/minute")
-async def read_wishlist(request: Request, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.get_user_wishlist(db, current_user.id)
-
-@router.post("/wishlist/", response_model=schemas.Wishlist)
-@limiter.limit("10/minute")
-async def add_to_wishlist(request: Request, wishlist: schemas.WishlistBase, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    return await crud.add_to_wishlist(db, wishlist, current_user.id)
-
-@router.delete("/wishlist/{wishlist_id}")
-@limiter.limit("10/minute")
-async def remove_from_wishlist(request: Request, wishlist_id: int, current_user: models.User = Depends(utils.get_current_user), db: AsyncSession = Depends(get_db)):
-    success = await crud.remove_from_wishlist(db, wishlist_id, current_user.id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Wishlist item not found")
-    return {"detail": "Item removed from wishlist"}
-
-@router.delete("/wishlist/items/{product_id}")
-@limiter.limit("10/minute")
-async def remove_wishlist_item(
-    request: Request,
-    product_id: int,
-    current_user: models.User = Depends(utils.get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    """Remove a specific product from the user's wishlist"""
-    success = await crud.remove_wishlist_item(db, current_user.id, product_id)
-    if not success:
-        raise HTTPException(status_code=404, detail="Wishlist item not found")
-    return {"detail": "Item removed from wishlist"}
-
-@router.post("/checkout/{order_id}", response_model=schemas.Checkout)
-@limiter.limit("5/minute")
-async def process_checkout(
-    request: Request,
-    order_id: int,
-    checkout: schemas.CheckoutBase,
-    current_user: models.User = Depends(utils.get_current_user),
-    db: AsyncSession = Depends(get_db)
-):
-    order = await db.execute(
-        select(models.Order).filter(models.Order.id == order_id, models.Order.user_id == current_user.id)
-    )
-    order = order.scalars().first()
-    if not order:
-        raise HTTPException(status_code=404, detail="Order not found")
-    if checkout.payment_method.lower() != "mpesa":
-        raise HTTPException(status_code=400, detail="Only M-Pesa is supported")
-    # Initiate M-Pesa STK Push
-    mpesa_response = await services.initiate_stk_push(checkout.phone_number, order.total, order_id)
-    db_checkout = await crud.create_checkout(db, checkout, order_id)
-    # Store M-Pesa transaction ID (CheckoutRequestID for now, update in callback)
-    db_checkout.mpesa_transaction_id = mpesa_response.get("CheckoutRequestID")
-    await db.commit()
-    await db.refresh(db_checkout)
-    # Create payment record
-    payment = schemas.PaymentBase(amount=order.total, transaction_id=db_checkout.mpesa_transaction_id)
-    await crud.create_payment(db, payment, db_checkout.id)
-    return db_checkout
-
-@router.post("/callback/{order_id}")
-async def mpesa_callback(order_id: int, callback_data: dict, db: AsyncSession = Depends(get_db)):
-    # Handle M-Pesa callback
-    result_code = callback_data.get("Body", {}).get("stkCallback", {}).get("ResultCode")
-    checkout_request_id = callback_data.get("Body", {}).get("stkCallback", {}).get("CheckoutRequestID")
-    if not result_code or not checkout_request_id:
-        raise HTTPException(status_code=400, detail="Invalid callback data")
-    
-    checkout = await db.execute(
-        select(models.Checkout).filter(models.Checkout.order_id == order_id, models.Checkout.mpesa_transaction_id == checkout_request_id)
-    )
-    checkout = checkout.scalars().first()
-    if not checkout:
-        raise HTTPException(status_code=404, detail="Checkout not found")
-    
-    if result_code == 0:  # Success
-        callback_metadata = callback_data.get("Body", {}).get("stkCallback", {}).get("CallbackMetadata", {}).get("Item", [])
-        mpesa_receipt = next((item["Value"] for item in callback_metadata if item["Name"] == "MpesaReceiptNumber"), None)
-        checkout.payment_status = "paid"
-        checkout.mpesa_transaction_id = mpesa_receipt
-        # Update order status
-        await db.execute(
-            update(models.Order).where(models.Order.id == order_id).values(status="paid")
-        )
-        # Update payment status
-        await db.execute(
-            update(models.Payment).where(models.Payment.checkout_id == checkout.id).values(status="paid")
-        )
-    else:
-        checkout.payment_status = "failed"
-        await db.execute(
-            update(models.Order).where(models.Order.id == order_id).values(status="failed")
-        )
-        # Update payment status
-        await db.execute(
-            update(models.Payment).where(models.Payment.checkout_id == checkout.id).values(status="failed")
-        )
-    
-    await db.commit()
-    return {"detail": "Callback processed"}

@@ -1,136 +1,76 @@
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update, delete, func, desc
 from sqlalchemy.orm import selectinload
-from . import models, schemas
-from .utils import get_password_hash, verify_password
+from backend import models, schemas, utils
 from fastapi import HTTPException
+from typing import Optional, List, Dict, Union
 
 # User CRUD
-async def get_user(db: AsyncSession, user_id: int):
-    result = await db.execute(select(models.User).filter(models.User.id == user_id))
+async def get_user(db: AsyncSession, user_id: int) -> Optional[models.User]:
+    result = await db.execute(
+        select(models.User)
+        .options(
+            selectinload(models.User.orders).selectinload(models.Order.items).selectinload(models.OrderItem.product),
+            selectinload(models.User.carts),
+            selectinload(models.User.wishlists)
+        )
+        .filter(models.User.id == user_id)
+    )
     return result.scalars().first()
 
-# Admin CRUD
-async def get_users(db: AsyncSession):
+async def get_users(db: AsyncSession) -> List[models.User]:
     result = await db.execute(select(models.User))
     return result.scalars().all()
 
-async def get_user_by_username(db: AsyncSession, username: str):
+async def get_user_by_username(db: AsyncSession, username: str) -> Optional[models.User]:
     result = await db.execute(select(models.User).filter(models.User.username == username))
     return result.scalars().first()
 
-async def create_user(db: AsyncSession, user: schemas.UserCreate):
-    # Create the user
-    hashed_password = get_password_hash(user.password)
+async def get_user_by_email(db: AsyncSession, email: str) -> Optional[models.User]:
+    result = await db.execute(select(models.User).filter(models.User.email == email))
+    return result.scalars().first()
+
+async def create_user(db: AsyncSession, user: schemas.UserCreate) -> models.User:
+    hashed_password = utils.get_password_hash(user.password)
     db_user = models.User(
-        username=user.username, 
-        hashed_password=hashed_password, 
-        role=user.role, 
-        email=user.email, 
-        full_name=user.full_name, 
-        phone=user.phone, 
+        username=user.username,
+        hashed_password=hashed_password,
+        role=user.role,
+        email=user.email,
+        full_name=user.full_name,
+        phone=user.phone,
         address=user.address
     )
     db.add(db_user)
-    await db.flush()  # Flush to get the user ID
-    
-    # Create empty cart for the user
-    db_cart = models.Cart(user_id=db_user.id)
-    db.add(db_cart)
-    
-    # Create empty wishlist for the user
-    db_wishlist = models.Wishlist(user_id=db_user.id)
-    db.add(db_wishlist)
-    
     await db.commit()
     await db.refresh(db_user)
     return db_user
 
-async def authenticate_user(db: AsyncSession, username: str, password: str):
-    user = await get_user_by_username(db, username)
-    if not user or not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-async def update_user(db: AsyncSession, user_id: int, user_update):
-    # Handle both Pydantic model and dictionary inputs
-    update_data = user_update.dict(exclude_unset=True) if hasattr(user_update, 'dict') else user_update
-    
+async def update_user(db: AsyncSession, user_id: int, user_update: Union[schemas.UserUpdate, schemas.AdminUserUpdate]) -> Optional[models.User]:
+    update_data = user_update.dict(exclude_unset=True)
+    if 'password' in update_data:
+        update_data['hashed_password'] = utils.get_password_hash(update_data.pop('password'))
     result = await db.execute(
-        update(models.User)
-        .where(models.User.id == user_id)
-        .values(**update_data)
+        update(models.User).where(models.User.id == user_id).values(**update_data)
     )
     await db.commit()
-    
-    # Return the updated user
     if result.rowcount > 0:
-        updated_user = await db.get(models.User, user_id)
-        await db.refresh(updated_user)
-        return updated_user
+        return await get_user(db, user_id)
     return None
 
-async def delete_user(db: AsyncSession, user_id: int):
+async def delete_user(db: AsyncSession, user_id: int) -> bool:
     result = await db.execute(delete(models.User).where(models.User.id == user_id))
     await db.commit()
     return result.rowcount > 0
 
-async def get_carts(db: AsyncSession):
-    result = await db.execute(select(models.Cart))
-    return result.scalars().all()
+async def authenticate_user(db: AsyncSession, username: str, password: str) -> Optional[models.User]:
+    user = await get_user_by_username(db, username)
+    if not user or not utils.verify_password(password, user.hashed_password):
+        return None
+    return user
 
-async def get_cart(db: AsyncSession, cart_id: int):
-    result = await db.execute(select(models.Cart).filter(models.Cart.id == cart_id))
-    return result.scalars().first()
-
-async def create_cart(db: AsyncSession, cart: schemas.CartBase):
-    db_cart = models.Cart(**cart.dict())
-    db.add(db_cart)
-    await db.commit()
-    await db.refresh(db_cart)
-    return db_cart
-
-async def update_cart(db: AsyncSession, cart_id: int, cart: schemas.CartBase):
-    result = await db.execute(
-        update(models.Cart).where(models.Cart.id == cart_id).values(**cart.dict())
-    )
-    await db.commit()
-    return await get_cart(db, cart_id)
-
-async def delete_cart(db: AsyncSession, cart_id: int):
-    result = await db.execute(delete(models.Cart).where(models.Cart.id == cart_id))
-    await db.commit()
-    return result.rowcount > 0
-
-async def get_orders(db: AsyncSession):
-    result = await db.execute(select(models.Order))
-    return result.scalars().all()
-
-async def get_order(db: AsyncSession, order_id: int):
-    result = await db.execute(select(models.Order).filter(models.Order.id == order_id))
-    return result.scalars().first()
-
-async def create_order(db: AsyncSession, order: schemas.OrderBase):
-    db_order = models.Order(**order.dict())
-    db.add(db_order)
-    await db.commit()
-    await db.refresh(db_order)
-    return db_order
-
-async def update_order(db: AsyncSession, order_id: int, order: schemas.OrderBase):
-    result = await db.execute(
-        update(models.Order).where(models.Order.id == order_id).values(**order.dict())
-    )
-    await db.commit()
-    return await get_order(db, order_id)
-
-async def delete_order(db: AsyncSession, order_id: int):
-    result = await db.execute(delete(models.Order).where(models.Order.id == order_id))
-    await db.commit()
-    return result.rowcount > 0
-
-# Category CRUD (Admin)
-async def get_categories(db: AsyncSession):
+# Category CRUD
+async def get_categories(db: AsyncSession) -> List[models.Category]:
     result = await db.execute(
         select(models.Category)
         .options(selectinload(models.Category.products))
@@ -138,7 +78,7 @@ async def get_categories(db: AsyncSession):
     )
     return result.scalars().all()
 
-async def get_category(db: AsyncSession, category_id: int):
+async def get_category(db: AsyncSession, category_id: int) -> Optional[models.Category]:
     result = await db.execute(
         select(models.Category)
         .options(selectinload(models.Category.products))
@@ -146,109 +86,383 @@ async def get_category(db: AsyncSession, category_id: int):
     )
     return result.scalars().first()
 
-async def create_category(db: AsyncSession, category: schemas.CategoryCreate):
-    db_category = models.Category(
-        name=category.name,
-        description=category.description,
-        image_url=category.image_url
-    )
+async def create_category(db: AsyncSession, category: schemas.CategoryCreate) -> models.Category:
+    db_category = models.Category(**category.dict())
     db.add(db_category)
     await db.commit()
     await db.refresh(db_category)
-    
-    # Return a serialized version of the category
-    return {
-        "id": db_category.id,
-        "name": db_category.name,
-        "description": db_category.description,
-        "image_url": db_category.image_url,
-        "products": []  # Empty list for products to match the schema
-    }
+    return db_category
 
-async def update_category(db: AsyncSession, category_id: int, category: schemas.CategoryUpdate):
+async def update_category(db: AsyncSession, category_id: int, category: schemas.CategoryUpdate) -> Optional[models.Category]:
     update_data = category.dict(exclude_unset=True)
     result = await db.execute(
-        update(models.Category)
-        .where(models.Category.id == category_id)
-        .values(**update_data)
+        update(models.Category).where(models.Category.id == category_id).values(**update_data)
     )
     await db.commit()
-    return await get_category(db, category_id)
+    if result.rowcount > 0:
+        return await get_category(db, category_id)
+    return None
 
-async def delete_category(db: AsyncSession, category_id: int):
-    result = await db.execute(
-        delete(models.Category)
-        .where(models.Category.id == category_id)
-    )
+async def delete_category(db: AsyncSession, category_id: int) -> bool:
+    result = await db.execute(delete(models.Category).where(models.Category.id == category_id))
     await db.commit()
     return result.rowcount > 0
 
-# Product CRUD (Admin)
-async def get_products(db: AsyncSession):
-    result = await db.execute(select(models.Product))
+# Product CRUD
+async def get_products(db: AsyncSession) -> List[models.Product]:
+    result = await db.execute(select(models.Product).options(selectinload(models.Product.category)))
     return result.scalars().all()
 
-async def get_product(db: AsyncSession, product_id: int):
-    result = await db.execute(select(models.Product).filter(models.Product.id == product_id))
+async def get_product(db: AsyncSession, product_id: int) -> Optional[models.Product]:
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.category))
+        .filter(models.Product.id == product_id)
+    )
     return result.scalars().first()
 
-async def create_product(db: AsyncSession, product: schemas.ProductBase):
+async def create_product(db: AsyncSession, product: schemas.ProductCreate) -> models.Product:
     db_product = models.Product(**product.dict())
     db.add(db_product)
     await db.commit()
     await db.refresh(db_product)
     return db_product
 
-async def update_product(db: AsyncSession, product_id: int, product: schemas.ProductBase):
+async def update_product(db: AsyncSession, product_id: int, product: schemas.ProductBase) -> Optional[models.Product]:
+    update_data = product.dict(exclude_unset=True)
     result = await db.execute(
-        update(models.Product).where(models.Product.id == product_id).values(**product.dict())
+        update(models.Product).where(models.Product.id == product_id).values(**update_data)
     )
     await db.commit()
-    return await get_product(db, product_id)
+    if result.rowcount > 0:
+        return await get_product(db, product_id)
+    return None
 
-async def delete_product(db: AsyncSession, product_id: int):
+async def delete_product(db: AsyncSession, product_id: int) -> bool:
     result = await db.execute(delete(models.Product).where(models.Product.id == product_id))
     await db.commit()
     return result.rowcount > 0
 
-# Cart CRUD (User)
-async def get_user_cart(db: AsyncSession, user_id: int):
-    result = await db.execute(select(models.Cart).filter(models.Cart.user_id == user_id))
-    return result.scalars().all()
+# ========== Cart CRUD Operations ==========
 
-async def add_to_cart(db: AsyncSession, cart: schemas.CartBase, user_id: int):
-    product = await get_product(db, cart.product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    if product.stock < cart.quantity:
-        raise HTTPException(status_code=400, detail="Insufficient stock")
-    db_cart = models.Cart(**cart.dict(), user_id=user_id)
+async def get_cart(db: AsyncSession, user_id: int) -> Optional[models.Cart]:
+    """Retrieve a user's cart if it exists."""
+    result = await db.execute(select(models.Cart).filter(models.Cart.user_id == user_id))
+    return result.scalars().first()
+
+async def create_cart(db: AsyncSession, user_id: int) -> models.Cart:
+    """Create a new cart for a user."""
+    db_cart = models.Cart(user_id=user_id, products=[])
     db.add(db_cart)
     await db.commit()
     await db.refresh(db_cart)
     return db_cart
 
-async def remove_from_cart(db: AsyncSession, cart_id: int, user_id: int):
-    result = await db.execute(
-        delete(models.Cart).where(models.Cart.id == cart_id, models.Cart.user_id == user_id)
-    )
-    await db.commit()
-    return result.rowcount > 0
+async def get_or_create_cart(db: AsyncSession, user_id: int) -> models.Cart:
+    """Get existing cart or create a new one if it doesn't exist."""
+    return await get_cart(db, user_id) or await create_cart(db, user_id)
 
-async def remove_cart_item(db: AsyncSession, user_id: int, product_id: int):
-    """Remove a specific product from user's cart"""
+async def add_to_cart(
+    db: AsyncSession,
+    cart_item: schemas.CartAddRequest,
+    user_id: int
+) -> models.Cart:
+    """Add an item to the cart or update quantity if item exists."""
+    cart = await get_or_create_cart(db, user_id)
+    product = await get_product(db, cart_item.product_id)
+
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if product.stock <= 0:
+        raise HTTPException(status_code=400, detail="Product out of stock")
+
+    existing_products = list(cart.products or [])
+    for item in existing_products:
+        if item.get("product_id") == cart_item.product_id:
+            new_quantity = item.get("quantity", 0) + cart_item.quantity
+            if new_quantity > product.stock:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Only {product.stock} items available in stock"
+                )
+            item["quantity"] = new_quantity
+            break
+    else:
+        if cart_item.quantity > product.stock:
+            raise HTTPException(status_code=400, detail=f"Only {product.stock} items available in stock")
+        existing_products.append({"product_id": cart_item.product_id, "quantity": cart_item.quantity})
+
+    cart.products = existing_products
+    await db.commit()
+    await db.refresh(cart)
+    return cart
+
+async def remove_cart_item(db: AsyncSession, user_id: int, product_id: int) -> bool:
+    cart = await get_cart(db, user_id)
+    if not cart or not cart.products:
+        return False
+    filtered = [item for item in cart.products if item.get("product_id") != product_id]
+    if len(filtered) == len(cart.products):
+        return False
+    cart.products = filtered
+    await db.commit()
+    return True
+
+async def update_cart_item_quantity(db: AsyncSession, user_id: int, product_id: int, quantity: int) -> Optional[dict]:
+    if quantity < 0:
+        raise HTTPException(status_code=400, detail="Quantity cannot be negative")
+
+    cart = await get_cart(db, user_id)
+    if not cart:
+        return None
+
+    product = await get_product(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+
+    if quantity > product.stock:
+        raise HTTPException(status_code=400, detail=f"Only {product.stock} items available in stock")
+
+    updated_products = list(cart.products or [])
+    for item in updated_products:
+        if item.get("product_id") == product_id:
+            if quantity == 0:
+                updated_products.remove(item)
+            else:
+                item["quantity"] = quantity
+            break
+    else:
+        if quantity > 0:
+            updated_products.append({"product_id": product_id, "quantity": quantity})
+
+    cart.products = updated_products
+    await db.commit()
+    await db.refresh(cart)
+    return await get_cart_with_totals(db, user_id)
+
+async def get_cart_with_totals(db: AsyncSession, user_id: int) -> dict:
+    cart = await get_cart(db, user_id)
+    if not cart or not cart.products:
+        return {
+            "id": cart.id if cart else None,
+            "products": [],
+            "subtotal": 0.0,
+            "tax": 0.0,
+            "total": 0.0,
+            "tax_rate": 0.16,
+            "currency": "KES"
+        }
+    
+    # Filter out any products that no longer exist
+    valid_products = []
+    for item in cart.products:
+        try:
+            product = await get_product(db, item.get("product_id"))
+            if product and product.stock > 0:
+                valid_products.append({
+                    "product_id": item.get("product_id"),
+                    "quantity": max(0, int(item.get("quantity", 0)))
+                })
+        except Exception:
+            continue
+    
+    # Update cart with only valid products
+    if len(valid_products) != len(cart.products):
+        cart.products = valid_products
+        await db.commit()
+    
+    if not valid_products:
+        return {
+            "id": cart.id,
+            "products": [],
+            "subtotal": 0.0,
+            "tax": 0.0,
+            "total": 0.0,
+            "tax_rate": 0.16,
+            "currency": "KES"
+        }
+    
+    product_ids = [item["product_id"] for item in valid_products]
+    products_result = await db.execute(
+        select(models.Product).filter(models.Product.id.in_(product_ids))
+    )
+    products = {p.id: p for p in products_result.scalars().all()}
+    
+    cart_items = []
+    subtotal = 0.0
+    
+    for item in valid_products:
+        product = products.get(item["product_id"])
+        if product:
+            item_quantity = min(int(item.get("quantity", 0)), max(0, product.stock))
+            if item_quantity <= 0:
+                continue
+            item_total = item_quantity * product.price
+            subtotal += item_total
+            
+            cart_items.append({
+                "product_id": product.id,
+                "quantity": item_quantity,
+                "product": schemas.ProductBase.from_orm(product),
+                "item_total": float(item_total)
+            })
+    
+    tax_rate = 0.16
+    tax = subtotal * tax_rate
+    total = subtotal + tax
+    
+    return {
+        "id": cart.id,
+        "products": cart_items,
+        "subtotal": float(subtotal),
+        "tax": float(tax),
+        "total": float(total),
+        "tax_rate": tax_rate,
+        "currency": "KES"
+    }
+
+# ========== Wishlist CRUD Operations ==========
+
+async def get_wishlist(db: AsyncSession, user_id: int) -> Optional[models.Wishlist]:
+    """Retrieve a user's wishlist if it exists."""
     result = await db.execute(
-        delete(models.Cart)
-        .where(
-            models.Cart.user_id == user_id,
-            models.Cart.product_id == product_id
+        select(models.Wishlist)
+        .filter(models.Wishlist.user_id == user_id)
+    )
+    return result.scalars().first()
+
+async def create_wishlist(db: AsyncSession, user_id: int) -> models.Wishlist:
+    """Create a new wishlist for a user."""
+    db_wishlist = models.Wishlist(user_id=user_id, products=[])
+    db.add(db_wishlist)
+    await db.commit()
+    await db.refresh(db_wishlist)
+    return db_wishlist
+
+async def get_or_create_wishlist(db: AsyncSession, user_id: int) -> models.Wishlist:
+    """Get existing wishlist or create a new one if it doesn't exist."""
+    return await get_wishlist(db, user_id) or await create_wishlist(db, user_id)
+
+async def add_to_wishlist(
+    db: AsyncSession,
+    wishlist_item: schemas.WishlistAddRequest,
+    user_id: int
+) -> models.Wishlist:
+    """
+    Add a product to the wishlist.
+    If the product is already in the wishlist, returns the wishlist as is.
+    """
+    wishlist = await get_or_create_wishlist(db, user_id)
+    product = await get_product(db, wishlist_item.product_id)
+    
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Check if product is already in wishlist
+    if wishlist.products and wishlist_item.product_id in wishlist.products:
+        return wishlist
+    
+    # Add product to wishlist
+    wishlist.products = (wishlist.products or []) + [wishlist_item.product_id]
+    await db.commit()
+    await db.refresh(wishlist)
+    return wishlist
+
+async def remove_wishlist_item(
+    db: AsyncSession,
+    user_id: int,
+    product_id: int
+) -> bool:
+    """
+    Remove a product from the wishlist.
+    Returns True if item was removed, False if item was not found.
+    """
+    wishlist = await get_wishlist(db, user_id)
+    if not wishlist or not wishlist.products:
+        return False
+    
+    initial_count = len(wishlist.products)
+    wishlist.products = [p_id for p_id in wishlist.products if p_id != product_id]
+    
+    if len(wishlist.products) < initial_count:
+        await db.commit()
+        return True
+    return False
+
+## Removed wishlist PUT helper as the endpoint is removed
+
+async def get_wishlist_with_details(db: AsyncSession, user_id: int) -> dict:
+    """
+    Get wishlist with product details.
+    Returns a dictionary with wishlist items and their details.
+    """
+    wishlist = await get_wishlist(db, user_id)
+    if not wishlist or not wishlist.products:
+        return {
+            "id": wishlist.id if wishlist else None,
+            "products": []
+        }
+    
+    # Get all product details in a single query
+    result = await db.execute(
+        select(models.Product)
+        .filter(models.Product.id.in_(wishlist.products))
+    )
+    products = result.scalars().all()
+    
+    return {
+        "id": wishlist.id,
+        "products": [schemas.ProductBase.from_orm(product) for product in products]
+    }
+
+async def clear_wishlist(db: AsyncSession, user_id: int) -> bool:
+    """
+    Clear all items from the wishlist.
+    Returns True if wishlist was cleared, False if it was already empty.
+    """
+    wishlist = await get_wishlist(db, user_id)
+    if not wishlist or not wishlist.products:
+        return False
+    
+    wishlist.products = []
+    await db.commit()
+    return True
+
+# Order CRUD
+async def get_orders(db: AsyncSession) -> List[models.Order]:
+    result = await db.execute(
+        select(models.Order)
+        .options(
+            selectinload(models.Order.items).selectinload(models.OrderItem.product),
+            selectinload(models.Order.checkout)
         )
     )
-    await db.commit()
-    return result.rowcount > 0
+    return result.scalars().all()
 
-# Order CRUD (User)
-async def create_order(db: AsyncSession, order: schemas.OrderCreate, user_id: int):
+async def get_order(db: AsyncSession, order_id: int) -> Optional[models.Order]:
+    result = await db.execute(
+        select(models.Order)
+        .options(
+            selectinload(models.Order.items).selectinload(models.OrderItem.product),
+            selectinload(models.Order.checkout)
+        )
+        .filter(models.Order.id == order_id)
+    )
+    return result.scalars().first()
+
+async def get_user_orders(db: AsyncSession, user_id: int) -> List[models.Order]:
+    result = await db.execute(
+        select(models.Order)
+        .options(
+            selectinload(models.Order.items).selectinload(models.OrderItem.product),
+            selectinload(models.Order.checkout)
+        )
+        .filter(models.Order.user_id == user_id)
+    )
+    return result.scalars().all()
+
+async def create_order(db: AsyncSession, order: schemas.OrderCreate, user_id: int) -> models.Order:
     total = 0
     for item in order.items:
         product = await get_product(db, item.product_id)
@@ -257,7 +471,6 @@ async def create_order(db: AsyncSession, order: schemas.OrderCreate, user_id: in
         if product.stock < item.quantity:
             raise HTTPException(status_code=400, detail=f"Insufficient stock for product {item.product_id}")
         total += item.quantity * item.price
-        # Update stock
         await db.execute(
             update(models.Product).where(models.Product.id == item.product_id).values(stock=product.stock - item.quantity)
         )
@@ -271,230 +484,31 @@ async def create_order(db: AsyncSession, order: schemas.OrderCreate, user_id: in
     await db.commit()
     return db_order
 
-async def get_user_orders(db: AsyncSession, user_id: int):
-    result = await db.execute(select(models.Order).filter(models.Order.user_id == user_id))
-    return result.scalars().all()
-
-# Wishlist CRUD (User)
-async def get_user_wishlist(db: AsyncSession, user_id: int):
-    result = await db.execute(select(models.Wishlist).filter(models.Wishlist.user_id == user_id))
-    return result.scalars().all()
-
-async def add_to_wishlist(db: AsyncSession, wishlist: schemas.WishlistBase, user_id: int):
-    product = await get_product(db, wishlist.product_id)
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    db_wishlist = models.Wishlist(**wishlist.dict(), user_id=user_id)
-    db.add(db_wishlist)
-    await db.commit()
-    await db.refresh(db_wishlist)
-    return db_wishlist
-
-async def remove_from_wishlist(db: AsyncSession, wishlist_id: int, user_id: int):
+async def update_order(db: AsyncSession, order_id: int, order: schemas.OrderBase) -> Optional[models.Order]:
+    update_data = order.dict(exclude_unset=True)
     result = await db.execute(
-        delete(models.Wishlist).where(models.Wishlist.id == wishlist_id, models.Wishlist.user_id == user_id)
+        update(models.Order).where(models.Order.id == order_id).values(**update_data)
     )
+    await db.commit()
+    if result.rowcount > 0:
+        return await get_order(db, order_id)
+    return None
+
+async def delete_order(db: AsyncSession, order_id: int) -> bool:
+    result = await db.execute(delete(models.Order).where(models.Order.id == order_id))
     await db.commit()
     return result.rowcount > 0
 
-async def remove_wishlist_item(db: AsyncSession, user_id: int, product_id: int):
-    """Remove a specific product from user's wishlist"""
-    result = await db.execute(
-        delete(models.Wishlist)
-        .where(
-            models.Wishlist.user_id == user_id,
-            models.Wishlist.product_id == product_id
-        )
-    )
-    await db.commit()
-    return result.rowcount > 0
-
-async def get_wishlist(db: AsyncSession, wishlist_id: int):
-    result = await db.execute(select(models.Wishlist).filter(models.Wishlist.id == wishlist_id))
-    return result.scalars().first()
-
-async def update_wishlist(db: AsyncSession, wishlist_id: int, wishlist: schemas.WishlistBase):
-    result = await db.execute(
-        update(models.Wishlist).where(models.Wishlist.id == wishlist_id).values(**wishlist.dict())
-    )
-    await db.commit()
-    return await get_wishlist(db, wishlist_id)
-
-async def delete_wishlist(db: AsyncSession, wishlist_id: int):
-    result = await db.execute(delete(models.Wishlist).where(models.Wishlist.id == wishlist_id))
-    await db.commit()
-    return result.rowcount > 0
-
-# Checkout (User)
-async def create_checkout(db: AsyncSession, checkout: schemas.CheckoutBase, order_id: int):
-    db_checkout = models.Checkout(**checkout.dict(), order_id=order_id)
-    db.add(db_checkout)
-    await db.commit()
-    await db.refresh(db_checkout)
-    return db_checkout
-
-async def get_checkouts(db: AsyncSession):
-    result = await db.execute(select(models.Checkout))
-    return result.scalars().all()
-
-async def get_checkout(db: AsyncSession, checkout_id: int):
-    result = await db.execute(select(models.Checkout).filter(models.Checkout.id == checkout_id))
-    return result.scalars().first()
-
-async def update_checkout(db: AsyncSession, checkout_id: int, checkout: schemas.CheckoutBase):
-    result = await db.execute(
-        update(models.Checkout).where(models.Checkout.id == checkout_id).values(**checkout.dict())
-    )
-    await db.commit()
-    return await get_checkout(db, checkout_id)
-
-async def delete_checkout(db: AsyncSession, checkout_id: int):
-    result = await db.execute(delete(models.Checkout).where(models.Checkout.id == checkout_id))
-    await db.commit()
-    return result.rowcount > 0
-
-# Payment CRUD
-async def create_payment(db: AsyncSession, payment: schemas.PaymentBase, checkout_id: int):
-    db_payment = models.Payment(**payment.dict(), checkout_id=checkout_id)
-    db.add(db_payment)
-    await db.commit()
-    await db.refresh(db_payment)
-    return db_payment
-
-async def get_payments(db: AsyncSession):
-    result = await db.execute(select(models.Payment))
-    return result.scalars().all()
-
-async def get_payment(db: AsyncSession, payment_id: int):
-    result = await db.execute(select(models.Payment).filter(models.Payment.id == payment_id))
-    return result.scalars().first()
-
-async def update_payment(db: AsyncSession, payment_id: int, payment: schemas.PaymentBase):
-    result = await db.execute(
-        update(models.Payment).where(models.Payment.id == payment_id).values(**payment.dict())
-    )
-    await db.commit()
-    return await get_payment(db, payment_id)
-
-async def delete_payment(db: AsyncSession, payment_id: int):
-    result = await db.execute(delete(models.Payment).where(models.Payment.id == payment_id))
-    await db.commit()
-    return result.rowcount > 0
-
-
-# Order item
-async def create_order_item(db: AsyncSession, order_item: schemas.OrderItemBase, order_id: int):
-    db_order_item = models.OrderItem(**order_item.dict(), order_id=order_id)
-    db.add(db_order_item)
-    await db.commit()
-    await db.refresh(db_order_item)
-    return db_order_item
-
-async def get_order_items(db: AsyncSession):
-    result = await db.execute(select(models.OrderItem))
-    return result.scalars().all()
-
-async def delete_order_item(db: AsyncSession, order_item_id: int, user_id: int):
-    """Delete an order item if it belongs to the user's order"""
-    # First check if the order belongs to the user
-    order_item = await db.execute(
-        select(models.OrderItem)
-        .join(models.Order)
-        .where(
-            models.OrderItem.id == order_item_id,
-            models.Order.user_id == user_id
-        )
-    )
-    order_item = order_item.scalars().first()
-    
-    if not order_item:
-        return False
-        
-    # Delete the order item
-    result = await db.execute(
-        delete(models.OrderItem)
-        .where(models.OrderItem.id == order_item_id)
-    )
-    await db.commit()
-    return result.rowcount > 0
-
-# Utility functions for calculating totals
-async def calculate_cart_total(db: AsyncSession, user_id: int) -> float:
-    """Calculate the total price of all items in the user's cart"""
-    result = await db.execute(
-        select(models.Cart.quantity * models.Product.price)
-        .join(models.Product, models.Cart.product_id == models.Product.id)
-        .where(models.Cart.user_id == user_id)
-    )
-    return float(sum(row[0] for row in result.all() or [0]))
-
-async def get_cart_with_totals(db: AsyncSession, user_id: int):
-    """Get user's cart with item details and calculate subtotal, tax, and total"""
-    # Get cart items with product details
-    result = await db.execute(
-        select(models.Cart, models.Product)
-        .join(models.Product, models.Cart.product_id == models.Product.id)
-        .where(models.Cart.user_id == user_id)
-    )
-    
-    cart_items = []
-    subtotal = 0.0
-    
-    for cart_item, product in result.all():
-        item_total = cart_item.quantity * product.price
-        subtotal += item_total
-        
-        cart_items.append({
-            "id": cart_item.id,
-            "product_id": cart_item.product_id,
-            "quantity": cart_item.quantity,
-            "product": {
-                "id": product.id,
-                "name": product.name,
-                "price": float(product.price),
-                "image_url": product.image_url
-            },
-            "item_total": float(item_total)
-        })
-    
-    # Calculate tax (16% VAT)
-    tax_rate = 0.16
-    tax = subtotal * tax_rate
-    total = subtotal + tax
-    
-    return {
-        "items": cart_items,
-        "subtotal": float(subtotal),
-        "tax": float(tax),
-        "total": float(total),
-        "tax_rate": tax_rate,
-        "currency": "KES"
-    }
-
-async def get_order_summary(db: AsyncSession, order_id: int):
-    """Get order summary with item details and totals"""
-    # Get order with items and products
-    order = await db.execute(
-        select(models.Order)
-        .options(
-            selectinload(models.Order.items)
-            .selectinload(models.OrderItem.product)
-        )
-        .where(models.Order.id == order_id)
-    )
-    order = order.scalars().first()
-    
+async def get_order_summary(db: AsyncSession, order_id: int) -> Optional[Dict]:
+    order = await get_order(db, order_id)
     if not order:
         return None
-    
-    # Prepare order items with details
-    order_items = []
     subtotal = 0.0
-    
+    tax_rate = 0.16
+    order_items = []
     for item in order.items:
         item_total = item.quantity * item.price
         subtotal += item_total
-        
         order_items.append({
             "id": item.id,
             "product_id": item.product_id,
@@ -507,13 +521,9 @@ async def get_order_summary(db: AsyncSession, order_id: int):
                 "image_url": item.product.image_url
             }
         })
-    
-    # Calculate tax and totals
-    tax_rate = 0.16
     tax = subtotal * tax_rate
-    shipping_cost = 0.0  # Could be calculated based on address, weight, etc.
+    shipping_cost = 0.0
     grand_total = subtotal + tax + shipping_cost
-    
     return {
         "order_id": order.id,
         "status": order.status,
@@ -526,3 +536,230 @@ async def get_order_summary(db: AsyncSession, order_id: int):
         "total": float(grand_total),
         "currency": "KES"
     }
+
+# OrderItem CRUD
+async def get_order_items(db: AsyncSession) -> List[models.OrderItem]:
+    result = await db.execute(
+        select(models.OrderItem).options(selectinload(models.OrderItem.product))
+    )
+    return result.scalars().all()
+
+async def get_user_order_items(db: AsyncSession, user_id: int) -> List[models.OrderItem]:
+    result = await db.execute(
+        select(models.OrderItem)
+        .options(selectinload(models.OrderItem.product))
+        .join(models.Order)
+        .filter(models.Order.user_id == user_id)
+    )
+    return result.scalars().all()
+
+async def get_order_item(db: AsyncSession, order_item_id: int, user_id: Optional[int] = None) -> Optional[models.OrderItem]:
+    query = select(models.OrderItem).options(selectinload(models.OrderItem.product)).filter(models.OrderItem.id == order_item_id)
+    if user_id:
+        query = query.join(models.Order).filter(models.Order.user_id == user_id)
+    result = await db.execute(query)
+    return result.scalars().first()
+
+async def create_order_item(db: AsyncSession, order_item: schemas.OrderItemBase, order_id: int) -> models.OrderItem:
+    db_order_item = models.OrderItem(**order_item.dict(), order_id=order_id)
+    db.add(db_order_item)
+    await db.commit()
+    await db.refresh(db_order_item)
+    return db_order_item
+
+async def update_order_item(db: AsyncSession, order_item_id: int, order_item: schemas.OrderItemBase) -> Optional[models.OrderItem]:
+    update_data = order_item.dict(exclude_unset=True)
+    result = await db.execute(
+        update(models.OrderItem).where(models.OrderItem.id == order_item_id).values(**update_data)
+    )
+    await db.commit()
+    if result.rowcount > 0:
+        return await get_order_item(db, order_item_id)
+    return None
+
+async def delete_order_item(db: AsyncSession, order_item_id: int, user_id: Optional[int] = None) -> bool:
+    query = delete(models.OrderItem).where(models.OrderItem.id == order_item_id)
+    if user_id:
+        query = query.join(models.Order).where(models.Order.user_id == user_id)
+    result = await db.execute(query)
+    await db.commit()
+    return result.rowcount > 0
+
+# Checkout CRUD
+async def get_checkouts(db: AsyncSession) -> List[models.Checkout]:
+    result = await db.execute(select(models.Checkout).options(selectinload(models.Checkout.order)))
+    return result.scalars().all()
+
+async def get_checkout(db: AsyncSession, checkout_id: int) -> Optional[models.Checkout]:
+    result = await db.execute(
+        select(models.Checkout)
+        .options(selectinload(models.Checkout.order))
+        .filter(models.Checkout.id == checkout_id)
+    )
+    return result.scalars().first()
+
+async def create_checkout(db: AsyncSession, checkout: schemas.CheckoutCreate, order_id: int) -> models.Checkout:
+    db_checkout = models.Checkout(**checkout.dict(), order_id=order_id)
+    db.add(db_checkout)
+    await db.commit()
+    await db.refresh(db_checkout)
+    return db_checkout
+
+async def update_checkout(db: AsyncSession, checkout_id: int, checkout: schemas.CheckoutBase) -> Optional[models.Checkout]:
+    update_data = checkout.dict(exclude_unset=True)
+    result = await db.execute(
+        update(models.Checkout).where(models.Checkout.id == checkout_id).values(**update_data)
+    )
+    await db.commit()
+    if result.rowcount > 0:
+        return await get_checkout(db, checkout_id)
+    return None
+
+async def delete_checkout(db: AsyncSession, checkout_id: int) -> bool:
+    result = await db.execute(delete(models.Checkout).where(models.Checkout.id == checkout_id))
+    await db.commit()
+    return result.rowcount > 0
+
+# Payment CRUD
+async def get_payments(db: AsyncSession) -> List[models.Payment]:
+    result = await db.execute(select(models.Payment).options(selectinload(models.Payment.checkout)))
+    return result.scalars().all()
+
+async def get_payment(db: AsyncSession, payment_id: int) -> Optional[models.Payment]:
+    result = await db.execute(
+        select(models.Payment)
+        .options(selectinload(models.Payment.checkout))
+        .filter(models.Payment.id == payment_id)
+    )
+    return result.scalars().first()
+
+async def create_payment(db: AsyncSession, payment: schemas.PaymentBase, checkout_id: int) -> models.Payment:
+    db_payment = models.Payment(**payment.dict(), checkout_id=checkout_id)
+    db.add(db_payment)
+    await db.commit()
+    await db.refresh(db_payment)
+    return db_payment
+
+async def update_payment(db: AsyncSession, payment_id: int, payment: schemas.PaymentBase) -> Optional[models.Payment]:
+    update_data = payment.dict(exclude_unset=True)
+    result = await db.execute(
+        update(models.Payment).where(models.Payment.id == payment_id).values(**update_data)
+    )
+    await db.commit()
+    if result.rowcount > 0:
+        return await get_payment(db, payment_id)
+    return None
+
+async def delete_payment(db: AsyncSession, payment_id: int) -> bool:
+    result = await db.execute(delete(models.Payment).where(models.Payment.id == payment_id))
+    await db.commit()
+    return result.rowcount > 0
+
+# Bestseller and Featured Products
+async def get_bestseller_products(db: AsyncSession, limit: int = 10) -> List[models.Product]:
+    product_sales = (
+        select(
+            models.OrderItem.product_id,
+            func.sum(models.OrderItem.quantity).label('total_sold')
+        )
+        .group_by(models.OrderItem.product_id)
+        .subquery()
+    )
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.category))
+        .outerjoin(product_sales, models.Product.id == product_sales.c.product_id)
+        .order_by(desc(product_sales.c.total_sold))
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+async def get_featured_products(db: AsyncSession, limit: int = 10) -> List[models.Product]:
+    result = await db.execute(
+        select(models.Product)
+        .options(selectinload(models.Product.category))
+        .where(models.Product.is_featured == True)
+        .order_by(desc(models.Product.updated_at))
+        .limit(limit)
+    )
+    return result.scalars().all()
+
+# Analytics
+async def get_analytics(db: AsyncSession) -> Dict:
+    total_users = await db.execute(select(func.count()).select_from(models.User))
+    total_users = total_users.scalar()
+
+    orders_result = await db.execute(
+        select(func.count(models.Order.id), func.sum(models.Order.total))
+    )
+    total_orders, total_revenue = orders_result.first()
+
+    top_products_result = await db.execute(
+        select(
+            models.Product.id,
+            models.Product.name,
+            func.sum(models.OrderItem.quantity).label('total_sold'),
+            func.sum(models.OrderItem.quantity * models.OrderItem.price).label('total_revenue')
+        )
+        .join(models.OrderItem, models.Product.id == models.OrderItem.product_id)
+        .group_by(models.Product.id, models.Product.name)
+        .order_by(desc('total_sold'))
+        .limit(5)
+    )
+    top_products = [
+        {
+            "id": row.id,
+            "name": row.name,
+            "total_sold": row.total_sold,
+            "total_revenue": float(row.total_revenue)
+        } for row in top_products_result.all()
+    ]
+
+    category_result = await db.execute(
+        select(
+            models.Category.id,
+            models.Category.name,
+            func.count(models.Product.id).label('product_count'),
+            func.sum(models.OrderItem.quantity).label('total_sold'),
+            func.sum(models.OrderItem.quantity * models.OrderItem.price).label('total_revenue')
+        )
+        .outerjoin(models.Product, models.Category.id == models.Product.category_id)
+        .outerjoin(models.OrderItem, models.Product.id == models.OrderItem.product_id)
+        .group_by(models.Category.id, models.Category.name)
+    )
+    category_performance = [
+        {
+            "id": row.id,
+            "name": row.name,
+            "product_count": row.product_count,
+            "total_sold": row.total_sold or 0,
+            "total_revenue": float(row.total_revenue or 0)
+        } for row in category_result.all()
+    ]
+
+    return {
+        "total_users": total_users,
+        "total_orders": total_orders or 0,
+        "total_revenue": float(total_revenue or 0),
+        "top_products": top_products,
+        "category_performance": category_performance,
+        "currency": "KES"
+    }
+
+# Settings
+async def get_settings(db: AsyncSession) -> models.Settings:
+    result = await db.execute(select(models.Settings).order_by(models.Settings.id.desc()))
+    settings = result.scalars().first()
+    if not settings:
+        settings = models.Settings(data={})
+        db.add(settings)
+        await db.commit()
+        await db.refresh(settings)
+    return settings
+
+async def update_settings(db: AsyncSession, data: Dict) -> models.Settings:
+    settings = await get_settings(db)
+    settings.data = data
+    await db.commit()
+    await db.refresh(settings)
+    return settings

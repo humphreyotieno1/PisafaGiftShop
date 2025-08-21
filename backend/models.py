@@ -1,5 +1,4 @@
-# backend/models.py
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Enum, Boolean
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Enum, Boolean, JSON
 from sqlalchemy.orm import relationship
 from .database import Base
 from datetime import datetime
@@ -8,6 +7,19 @@ import enum
 class UserRole(enum.Enum):
     admin = "admin"
     user = "user"
+
+class OrderStatus(enum.Enum):
+    pending = "pending"
+    processing = "processing"
+    shipped = "shipped"
+    delivered = "delivered"
+    cancelled = "cancelled"
+
+class PaymentStatus(enum.Enum):
+    pending = "pending"
+    completed = "completed"
+    failed = "failed"
+    refunded = "refunded"
 
 class User(Base):
     __tablename__ = "users"
@@ -21,16 +33,17 @@ class User(Base):
     address = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    is_active = Column(Boolean, default=True)
 
-    carts = relationship("Cart", back_populates="user")
+    carts = relationship("Cart", back_populates="user", uselist=False)
     orders = relationship("Order", back_populates="user")
-    wishlists = relationship("Wishlist", back_populates="user") 
+    wishlists = relationship("Wishlist", back_populates="user", uselist=False)
 
 class Category(Base):
     __tablename__ = "categories"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True)
-    description = Column(String)
+    description = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
 
     products = relationship("Product", back_populates="category")
@@ -43,24 +56,22 @@ class Product(Base):
     price = Column(Float)
     stock = Column(Integer)
     category_id = Column(Integer, ForeignKey("categories.id"))
-    image_url = Column(String, nullable=True)  # URL to product image
+    image_url = Column(String, nullable=True)
     is_bestseller = Column(Boolean, default=False)
     is_featured = Column(Boolean, default=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     category = relationship("Category", back_populates="products")
-    carts = relationship("Cart", back_populates="product")
     order_items = relationship("OrderItem", back_populates="product")
-    wishlists = relationship("Wishlist", back_populates="product")
+    # Removed carts relationship since no direct foreign key exists
 
 class Cart(Base):
     __tablename__ = "carts"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    product_id = Column(Integer, ForeignKey("products.id"))
-    quantity = Column(Integer, default=1)
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    products = Column(JSON, default=list)
 
     user = relationship("User", back_populates="carts")
-    product = relationship("Product", back_populates="carts")
 
 class Order(Base):
     __tablename__ = "orders"
@@ -68,7 +79,7 @@ class Order(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     created_at = Column(DateTime, default=datetime.utcnow)
     total = Column(Float)
-    status = Column(String, default="pending")  # e.g., pending, shipped, delivered
+    status = Column(Enum(OrderStatus), default=OrderStatus.pending)
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order")
@@ -80,7 +91,7 @@ class OrderItem(Base):
     order_id = Column(Integer, ForeignKey("orders.id"))
     product_id = Column(Integer, ForeignKey("products.id"))
     quantity = Column(Integer)
-    price = Column(Float)  # Price at time of order
+    price = Column(Float)
 
     order = relationship("Order", back_populates="items")
     product = relationship("Product", back_populates="order_items")
@@ -88,19 +99,19 @@ class OrderItem(Base):
 class Wishlist(Base):
     __tablename__ = "wishlists"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    product_id = Column(Integer, ForeignKey("products.id"))
+    user_id = Column(Integer, ForeignKey("users.id"), unique=True)
+    products = Column(JSON, default=list)
 
     user = relationship("User", back_populates="wishlists")
-    product = relationship("Product", back_populates="wishlists")
 
 class Checkout(Base):
     __tablename__ = "checkouts"
     id = Column(Integer, primary_key=True, index=True)
     order_id = Column(Integer, ForeignKey("orders.id"), unique=True)
-    payment_method = Column(String)  # e.g., mpesa
+    payment_method = Column(String)
     payment_status = Column(String, default="pending")
     address = Column(String)
+    phone_number = Column(String)
     mpesa_transaction_id = Column(String, nullable=True)
 
     order = relationship("Order", back_populates="checkout")
@@ -112,7 +123,13 @@ class Payment(Base):
     checkout_id = Column(Integer, ForeignKey("checkouts.id"))
     amount = Column(Float)
     transaction_id = Column(String, unique=True)
-    status = Column(String, default="pending")
+    status = Column(Enum(PaymentStatus), default=PaymentStatus.pending)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     checkout = relationship("Checkout", back_populates="payments")
+
+class Settings(Base):
+    __tablename__ = "settings"
+    id = Column(Integer, primary_key=True, index=True)
+    data = Column(JSON, default=dict)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
