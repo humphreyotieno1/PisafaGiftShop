@@ -24,7 +24,7 @@ import type {
 } from '@/types/api';
 
 // Base API configuration
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://pisafa-api.onrender.com';
 
 // Helper function to handle API requests
 async function fetchWithAuth<T>(
