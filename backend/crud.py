@@ -657,6 +657,7 @@ async def delete_payment(db: AsyncSession, payment_id: int) -> bool:
 
 # Bestseller and Featured Products
 async def get_bestseller_products(db: AsyncSession, limit: int = 10) -> List[models.Product]:
+    # First try to get products based on sales
     product_sales = (
         select(
             models.OrderItem.product_id,
@@ -665,6 +666,7 @@ async def get_bestseller_products(db: AsyncSession, limit: int = 10) -> List[mod
         .group_by(models.OrderItem.product_id)
         .subquery()
     )
+    
     result = await db.execute(
         select(models.Product)
         .options(selectinload(models.Product.category))
@@ -672,7 +674,24 @@ async def get_bestseller_products(db: AsyncSession, limit: int = 10) -> List[mod
         .order_by(desc(product_sales.c.total_sold))
         .limit(limit)
     )
-    return result.scalars().all()
+    
+    products = result.scalars().all()
+    
+    # If we don't have enough products with sales, fill with products marked as bestsellers
+    if len(products) < limit:
+        remaining_limit = limit - len(products)
+        bestseller_result = await db.execute(
+            select(models.Product)
+            .options(selectinload(models.Product.category))
+            .where(models.Product.is_bestseller == True)
+            .where(~models.Product.id.in_([p.id for p in products]))  # Exclude already selected products
+            .order_by(desc(models.Product.updated_at))
+            .limit(remaining_limit)
+        )
+        additional_products = bestseller_result.scalars().all()
+        products.extend(additional_products)
+    
+    return products
 
 async def get_featured_products(db: AsyncSession, limit: int = 10) -> List[models.Product]:
     result = await db.execute(

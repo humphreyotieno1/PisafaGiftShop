@@ -206,12 +206,16 @@ function ResetPasswordForm() {
 
 export default function ResetPasswordPage() {
   return (
-    <Suspense fallback={
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+    <div className="container flex min-h-[calc(100vh-16rem)] items-center justify-center px-4 py-12">
+      <div className="w-full max-w-md sm:max-w-lg">
+        <Suspense fallback={
+          <div className="flex items-center justify-center h-full">
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+          </div>
+        }>
+          <ResetPasswordForm />
+        </Suspense>
       </div>
-    }>
-      <ResetPasswordForm />
-    </Suspense>
+    </div>
   );
 }

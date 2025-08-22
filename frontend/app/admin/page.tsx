@@ -9,7 +9,10 @@ import {
   DollarSign,
   TrendingUp,
   AlertCircle,
-  Home
+  Home,
+  BarChart3,
+  Calendar,
+  CreditCard
 } from "lucide-react"
 import Link from "next/link"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -43,13 +46,20 @@ export default function AdminDashboard() {
       try {
         setDashboardData(prev => ({ ...prev, loading: true, error: null }))
         const analytics = await adminApi.getAnalytics()
+        
+        // Get products and categories count
+        const [products, categories] = await Promise.all([
+          adminApi.getProducts(),
+          adminApi.getCategories()
+        ])
+        
         setDashboardData(prev => ({
           stats: {
-            totalProducts: analytics.top_products?.length || 0,
-            totalCategories: analytics.category_performance?.length || 0,
+            totalProducts: products.length,
+            totalCategories: categories.length,
             totalUsers: analytics.total_users || 0,
             totalRevenue: analytics.total_revenue || 0,
-            lowStockProducts: 0,
+            lowStockProducts: products.filter(p => p.stock < 10).length,
             completedOrders: analytics.total_orders || 0,
           },
           recentActivity: {
@@ -82,6 +92,15 @@ export default function AdminDashboard() {
     return () => clearInterval(interval)
   }, [toast])
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-KE', {
+      style: 'currency',
+      currency: 'KES',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount)
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     return new Intl.DateTimeFormat('en-US', {
@@ -113,7 +132,10 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <div>
+          <h1 className="text-3xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground mt-1">Welcome to your admin dashboard</p>
+        </div>
         <Link href="/" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary">
           <Home className="mr-2 h-4 w-4" /> Back to Home
         </Link>
@@ -126,16 +148,16 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <Card className="border bg-gradient-to-br from-white to-slate-50">
+          <Card className="border bg-gradient-to-br from-blue-50 to-blue-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Products</CardTitle>
-              <Package className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-blue-900">Total Products</CardTitle>
+              <Package className="h-4 w-4 text-blue-600" />
             </CardHeader>
             <CardContent>
               {dashboardData.loading ? (
-                <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+                <div className="h-8 w-24 animate-pulse rounded-md bg-blue-200" />
               ) : (
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-blue-900">
                   {dashboardData.stats.totalProducts.toLocaleString()}
                 </div>
               )}
@@ -148,16 +170,16 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.2 }}
         >
-          <Card className="border bg-gradient-to-br from-white to-slate-50">
+          <Card className="border bg-gradient-to-br from-green-50 to-green-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Categories</CardTitle>
-              <ShoppingBag className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-green-900">Total Categories</CardTitle>
+              <ShoppingBag className="h-4 w-4 text-green-600" />
             </CardHeader>
             <CardContent>
               {dashboardData.loading ? (
-                <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+                <div className="h-8 w-24 animate-pulse rounded-md bg-green-200" />
               ) : (
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-green-900">
                   {dashboardData.stats.totalCategories.toLocaleString()}
                 </div>
               )}
@@ -170,16 +192,16 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.3 }}
         >
-          <Card className="border bg-gradient-to-br from-white to-slate-50">
+          <Card className="border bg-gradient-to-br from-purple-50 to-purple-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-purple-900">Total Users</CardTitle>
+              <Users className="h-4 w-4 text-purple-600" />
             </CardHeader>
             <CardContent>
               {dashboardData.loading ? (
-                <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+                <div className="h-8 w-24 animate-pulse rounded-md bg-purple-200" />
               ) : (
-                <div className="text-2xl font-bold">
+                <div className="text-2xl font-bold text-purple-900">
                   {dashboardData.stats.totalUsers.toLocaleString()}
                 </div>
               )}
@@ -192,126 +214,64 @@ export default function AdminDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.4 }}
         >
-          <Card className="border bg-gradient-to-br from-white to-slate-50">
+          <Card className="border bg-gradient-to-br from-orange-50 to-orange-100">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-              <DollarSign className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium text-orange-900">Total Revenue</CardTitle>
+              <DollarSign className="h-4 w-4 text-orange-600" />
             </CardHeader>
             <CardContent>
               {dashboardData.loading ? (
-                <div className="h-8 w-24 animate-pulse rounded-md bg-muted" />
+                <div className="h-8 w-24 animate-pulse rounded-md bg-orange-200" />
               ) : (
-                <div className="text-2xl font-bold">Ksh {dashboardData.stats.totalRevenue.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-orange-900">
+                  {formatCurrency(dashboardData.stats.totalRevenue)}
+                </div>
               )}
             </CardContent>
           </Card>
         </motion.div>
       </div>
 
-      {/* Alert Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.5 }}
-      >
-        <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950">
-          <CardHeader className="flex flex-row items-center gap-2 space-y-0 pb-2">
-            <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-            <CardTitle className="text-sm font-medium text-amber-800 dark:text-amber-300">
-              Inventory Alert
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-amber-800 dark:text-amber-300">
-              {dashboardData.loading ? (
-                <div className="h-5 w-full animate-pulse rounded-md bg-amber-200 dark:bg-amber-800" />
-              ) : (
-                <>
-                  <span className="font-medium">{dashboardData.stats.lowStockProducts}</span> products are running low on stock.
-                  Consider restocking soon.
-                </>
-              )}
-            </p>
-          </CardContent>
-        </Card>
-      </motion.div>
-
-      {/* Recent Activity */}
+      {/* Additional Stats */}
       <div className="grid gap-4 md:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.5 }}
+        >
+          <Card className="border bg-gradient-to-br from-red-50 to-red-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-red-900">Low Stock Products</CardTitle>
+              <AlertCircle className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              {dashboardData.loading ? (
+                <div className="h-8 w-24 animate-pulse rounded-md bg-red-200" />
+              ) : (
+                <div className="text-2xl font-bold text-red-900">
+                  {dashboardData.stats.lowStockProducts.toLocaleString()}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.6 }}
         >
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Products</CardTitle>
-              <CardDescription>Latest products added to the store</CardDescription>
+          <Card className="border bg-gradient-to-br from-indigo-50 to-indigo-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-indigo-900">Total Orders</CardTitle>
+              <CreditCard className="h-4 w-4 text-indigo-600" />
             </CardHeader>
             <CardContent>
               {dashboardData.loading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
-                  ))}
-                </div>
-              ) : dashboardData.recentActivity.products.length === 0 ? (
-                <p className="text-muted-foreground">No recent products</p>
+                <div className="h-8 w-24 animate-pulse rounded-md bg-indigo-200" />
               ) : (
-                <div className="space-y-4">
-                  {dashboardData.recentActivity.products.map((product) => (
-                    <div key={product.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Added {formatDate(product.createdAt)}
-                        </p>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        Ksh {product.price.toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.7 }}
-        >
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Users</CardTitle>
-              <CardDescription>Latest users registered</CardDescription>
-            </CardHeader>
-            <CardContent>
-              {dashboardData.loading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <div key={i} className="h-12 animate-pulse rounded-md bg-muted" />
-                  ))}
-                </div>
-              ) : dashboardData.recentActivity.users.length === 0 ? (
-                <p className="text-muted-foreground">No recent users</p>
-              ) : (
-                <div className="space-y-4">
-                  {dashboardData.recentActivity.users.map((user) => (
-                    <div key={user.id} className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">{user.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Joined {formatDate(user.createdAt)}
-                        </p>
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {user.role}
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-2xl font-bold text-indigo-900">
+                  {dashboardData.stats.completedOrders.toLocaleString()}
                 </div>
               )}
             </CardContent>
@@ -319,45 +279,142 @@ export default function AdminDashboard() {
         </motion.div>
       </div>
 
-      {/* Simple responsive charts */}
-      {!dashboardData.loading && (
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue Trend</CardTitle>
-              <CardDescription>Last {Math.min(10, dashboardData.recentActivity.products.length)} items</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-2 h-40">
-                {dashboardData.recentActivity.products.slice(0, 10).map((p, i) => (
-                  <div key={i} className="flex-1 bg-primary/10" style={{ height: `${Math.min(100, Math.max(10, (p.price || 0) / 10))}%` }} />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Category Performance</CardTitle>
-              <CardDescription>Top categories by items</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2">
-                {dashboardData.loading ? (
-                  <div className="h-8 w-full animate-pulse rounded bg-muted" />
-                ) : (
-                  (dashboardData.stats.totalCategories > 0 ? dashboardData.stats.totalCategories : 0) &&
-                  Array.from({ length: Math.min(6, dashboardData.stats.totalCategories) }).map((_, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <div className="h-2 bg-primary/30 rounded" style={{ width: `${(i + 1) * 12}%` }} />
+      {/* Analytics Tabs */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.7 }}
+      >
+        <Card className="border">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Analytics Overview
+            </CardTitle>
+            <CardDescription>
+              Detailed insights into your business performance
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="products" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="products">Top Products</TabsTrigger>
+                <TabsTrigger value="categories">Category Performance</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="products" className="space-y-4">
+                <div className="rounded-md border">
+                  <div className="p-4">
+                    <h4 className="text-sm font-medium">Top Selling Products</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Products with the highest sales volume
+                    </p>
+                  </div>
+                  <div className="border-t">
+                    {dashboardData.loading ? (
+                      <div className="p-4 space-y-3">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="flex items-center space-x-4">
+                            <div className="h-8 w-8 animate-pulse rounded-md bg-muted" />
+                            <div className="space-y-2 flex-1">
+                              <div className="h-4 w-3/4 animate-pulse rounded-md bg-muted" />
+                              <div className="h-3 w-1/2 animate-pulse rounded-md bg-muted" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : dashboardData.recentActivity.products.length > 0 ? (
+                      <div className="p-4 space-y-3">
+                        {dashboardData.recentActivity.products.map((product: any, index: number) => (
+                          <div key={product.id} className="flex items-center space-x-4">
+                            <div className="flex-shrink-0">
+                              <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                                <span className="text-xs font-medium text-primary">
+                                  #{index + 1}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{product.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {product.total_sold} units sold • {formatCurrency(product.total_revenue)}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="p-4 text-center text-muted-foreground">
+                        No product data available
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="categories" className="space-y-4">
+                <div className="rounded-md border">
+                  <div className="p-4">
+                    <h4 className="text-sm font-medium">Category Performance</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Sales performance by category
+                    </p>
+                  </div>
+                  <div className="border-t">
+                    <div className="p-4 text-center text-muted-foreground">
+                      Category performance data will be displayed here
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Quick Actions */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.8 }}
+      >
+        <Card className="border">
+          <CardHeader>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>
+              Common administrative tasks
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+              <Link href="/admin/products">
+                <Button variant="outline" className="w-full h-auto p-4 flex-col gap-2">
+                  <Package className="h-6 w-6" />
+                  <span>Manage Products</span>
+                </Button>
+              </Link>
+              <Link href="/admin/categories">
+                <Button variant="outline" className="w-full h-auto p-4 flex-col gap-2">
+                  <ShoppingBag className="h-6 w-6" />
+                  <span>Manage Categories</span>
+                </Button>
+              </Link>
+              <Link href="/admin/users">
+                <Button variant="outline" className="w-full h-auto p-4 flex-col gap-2">
+                  <Users className="h-6 w-6" />
+                  <span>Manage Users</span>
+                </Button>
+              </Link>
+              <Link href="/admin/orders">
+                <Button variant="outline" className="w-full h-auto p-4 flex-col gap-2">
+                  <CreditCard className="h-6 w-6" />
+                  <span>View Orders</span>
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
     </div>
   )
 }

@@ -63,17 +63,10 @@ export default function RegisterPage() {
       if (result.success) {
         toast({ 
           title: 'Registration successful!',
-          description: 'Welcome to Pisafa Gifts Shop.',
+          description: 'Your account has been created. Please sign in to continue.',
         });
-        const redirectParam = searchParams.get('redirect');
-        const user = await checkAuth();
-        if (redirectParam) {
-          router.replace(redirectParam);
-        } else if (user?.role === 'admin') {
-          router.replace('/admin');
-        } else {
-          router.replace('/');
-        }
+        // Redirect to login page after successful registration
+        router.replace('/auth/login');
       } else {
         toast({
           title: 'Registration failed',

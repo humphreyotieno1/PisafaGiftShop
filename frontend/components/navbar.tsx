@@ -2,12 +2,14 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useCartContext } from '@/contexts/CartContext';
 import { useWishlistContext } from '@/contexts/WishlistContext';
 import { useToast } from '@/components/ui/use-toast';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   DropdownMenu,
@@ -34,12 +36,16 @@ interface User {
 export default function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const { user, isAuthenticated, logout } = useAuthContext();
   const { cartCount } = useCartContext();
   const { wishlistCount } = useWishlistContext();
   const { toast } = useToast();
+  const router = useRouter();
   const navRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Close mobile menu on outside click
   useEffect(() => {
@@ -58,6 +64,13 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleOutsideClick);
   }, [isMenuOpen]);
 
+  // Focus search input when search is opened
+  useEffect(() => {
+    if (isSearchOpen && searchInputRef.current) {
+      searchInputRef.current.focus();
+    }
+  }, [isSearchOpen]);
+
   // Handle logout
   const handleLogout = async () => {
     try {
@@ -65,6 +78,7 @@ export default function Navbar() {
       const result = await logout();
       if (result.success) {
         toast({ title: 'Logged out successfully' });
+        setIsMenuOpen(false);
       } else {
         toast({ title: 'Logout failed', description: result.error, variant: 'destructive' });
       }
@@ -73,6 +87,16 @@ export default function Navbar() {
     }
     finally {
       setIsLoggingOut(false);
+    }
+  };
+
+  // Handle search
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      router.push(`/shop?search=${encodeURIComponent(searchQuery.trim())}`);
+      setIsSearchOpen(false);
+      setSearchQuery('');
     }
   };
 
@@ -127,11 +151,13 @@ export default function Navbar() {
 
           {/* Right side - Search, Cart, Wishlist, User, Mobile Menu Button */}
           <div className="flex items-center space-x-1 sm:space-x-2 md:space-x-3">
+            {/* Search Button */}
             <Button
               variant="ghost"
               size="icon"
               className="h-10 w-10 rounded-full hover:bg-gray-100 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-600 sm:flex transition-all duration-200"
               aria-label="Search products"
+              onClick={() => setIsSearchOpen(!isSearchOpen)}
             >
               <Search className="h-5 w-5 text-gray-700 hover:text-blue-600 hover:rotate-6 transition-all duration-200" />
             </Button>
@@ -269,6 +295,45 @@ export default function Navbar() {
         </div>
       </div>
 
+      {/* Search Bar */}
+      <AnimatePresence>
+        {isSearchOpen && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="bg-white border-t border-gray-200 overflow-hidden"
+          >
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <Input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Search for products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" disabled={!searchQuery.trim()}>
+                  <Search className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsSearchOpen(false);
+                    setSearchQuery('');
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Mobile Navigation */}
       <AnimatePresence>
         {isMenuOpen && (
@@ -281,6 +346,20 @@ export default function Navbar() {
             className="md:hidden bg-white border-t overflow-hidden"
           >
             <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+              {/* Mobile Search */}
+              <form onSubmit={handleSearch} className="flex gap-2 px-3 py-2">
+                <Input
+                  type="text"
+                  placeholder="Search for products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="flex-1"
+                />
+                <Button type="submit" size="sm" disabled={!searchQuery.trim()}>
+                  <Search className="h-4 w-4" />
+                </Button>
+              </form>
+
               {navItems.map((item) => (
                 <Link
                   key={item.href}
@@ -292,7 +371,67 @@ export default function Navbar() {
                   {item.label}
                 </Link>
               ))}
-              {!isAuthenticated && (
+              
+              {/* Mobile User Menu */}
+              {isAuthenticated ? (
+                <div className="border-t border-gray-200 pt-2 mt-2">
+                  <div className="px-3 py-2">
+                    <div className="flex items-center space-x-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarFallback>
+                          {getInitials(user?.full_name || user?.username || 'U')}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-gray-900">
+                          {user?.full_name || user?.username}
+                        </p>
+                        <p className="text-xs text-gray-500">
+                          {user?.email}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Link
+                    href="/profile"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 flex items-center gap-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <User className="h-5 w-5" />
+                    Profile
+                  </Link>
+                  
+                  {user?.role === 'admin' && (
+                    <Link
+                      href="/admin"
+                      className="text-gray-700 hover:text-blue-600 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 flex items-center gap-2"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      <Settings className="h-5 w-5" />
+                      Admin Panel
+                    </Link>
+                  )}
+                  
+                  <Link
+                    href="/orders"
+                    className="text-gray-700 hover:text-blue-600 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 flex items-center gap-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Package className="h-5 w-5" />
+                    Orders
+                  </Link>
+                  
+                  <button
+                    onClick={handleLogout}
+                    disabled={isLoggingOut}
+                    className="w-full text-left text-gray-700 hover:text-red-600 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium transition-all duration-200 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isLoggingOut ? <Loader2 className="h-5 w-5 animate-spin" /> : <LogOut className="h-5 w-5" />}
+                    {isLoggingOut ? 'Logging out...' : 'Log out'}
+                  </button>
+                </div>
+              ) : (
                 <>
                   <Link
                     href="/auth/login"

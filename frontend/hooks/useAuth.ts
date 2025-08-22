@@ -30,6 +30,11 @@ export function useAuth() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Authentication failed';
       setState({ user: null, loading: false, error: errorMessage });
+      // Clear tokens if authentication fails
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+      }
       return null;
     }
   }, []);
@@ -50,11 +55,21 @@ export function useAuth() {
   const logout = async (): Promise<AuthResult> => {
     try {
       setState(prev => ({ ...prev, loading: true }));
-      await authApi.logout();
+      // Try to call logout API, but don't fail if it doesn't work
+      try {
+        await authApi.logout();
+      } catch (err) {
+        // Ignore API errors during logout
+        console.warn('Logout API call failed:', err);
+      }
+      
+      // Always clear local state and tokens
       setState({ user: null, loading: false, error: null });
       if (typeof window !== 'undefined') {
         localStorage.removeItem('access_token');
         localStorage.removeItem('refresh_token');
+        // Force a page reload to clear all state
+        window.location.href = '/';
       }
       return { success: true };
     } catch (err) {
