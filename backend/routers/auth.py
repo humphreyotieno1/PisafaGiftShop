@@ -14,7 +14,7 @@ from email.mime.text import MIMEText
 router = APIRouter(prefix="/auth", tags=["auth"])
 limiter = Limiter(key_func=get_remote_address)
 
-@router.post("/register", response_model=schemas.UserCreate, status_code=status.HTTP_201_CREATED, summary="Register a new user")
+@router.post("/register", response_model=schemas.User, status_code=status.HTTP_201_CREATED, summary="Register a new user")
 @limiter.limit("5/minute")
 async def register(
     request: Request,

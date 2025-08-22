@@ -65,6 +65,9 @@ export default function UsersPage() {
     role: "user",
     password: "",
     active: true,
+    username: "",
+    phone: "",
+    address: "",
   })
 
   const handleUpdateUser = async (userId: number, updates: Partial<AdminUserUpdate>) => {
@@ -99,12 +102,15 @@ export default function UsersPage() {
       role: u.role,
       password: "",
       active: u.is_active,
+      username: u.username || "",
+      phone: u.phone || "",
+      address: u.address || "",
     })
     setIsEditDialogOpen(true)
   }
 
   const handleAddUser = () => {
-    setFormData({ name: "", email: "", role: "user", password: "", active: true })
+    setFormData({ name: "", email: "", role: "user", password: "", active: true, username: "", phone: "", address: "" })
     setIsAddDialogOpen(true)
   }
 
@@ -121,6 +127,10 @@ export default function UsersPage() {
         email: formData.email,
         password: formData.password,
         role: formData.role as any,
+        is_active: formData.active,
+        username: formData.username,
+        phone: formData.phone,
+        address: formData.address,
       }
       await adminApi.createUser(payload)
       await fetchUsers()
@@ -145,6 +155,9 @@ export default function UsersPage() {
         role: formData.role as any,
         is_active: formData.active,
         password: formData.password || undefined,
+        username: formData.username,
+        phone: formData.phone,
+        address: formData.address,
       })
     } finally {
       setIsProcessing(false)
@@ -282,6 +295,9 @@ export default function UsersPage() {
                     <TableHead>Name</TableHead>
                     <TableHead>Email</TableHead>
                     <TableHead>Role</TableHead>
+                    <TableHead>Username</TableHead>
+                    <TableHead>Phone</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Created</TableHead>
                     <TableHead>Last Login</TableHead>
@@ -298,6 +314,9 @@ export default function UsersPage() {
                           {user.role === 'ADMIN' ? 'Admin' : 'Customer'}
                         </span>
                       </TableCell>
+                      <TableCell>{user.username}</TableCell>
+                      <TableCell>{user.phone}</TableCell>
+                      <TableCell>{user.address}</TableCell>
                       <TableCell>
                         <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
                           {user.is_active ? 'Active' : 'Inactive'}
@@ -366,6 +385,37 @@ export default function UsersPage() {
           <form onSubmit={handleAddSubmit}>
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
+                
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  name="username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  placeholder="johndoe"
+                  required
+                />
+                
+                <Label htmlFor="phone">Phone</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="+1 234567890"
+                  required
+                />
+
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  name="address"
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  placeholder="123 Main St"
+                  required
+                />
+                
                 <Label htmlFor="name">Full Name</Label>
                 <Input
                   id="name"
