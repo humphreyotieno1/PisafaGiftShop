@@ -27,7 +27,7 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://www.pisafagiftshop.com/", "https://pisafa-api.onrender.com"],  # Adjust for production (e.g., ["https://your-frontend.com"])
+    allow_origins=["https://www.pisafagiftshop.com"],  # Adjust for production (e.g., ["https://your-frontend.com"])
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
