@@ -20,25 +20,6 @@ export default function EditProductPage({ params }: { params: { id: string } }) 
     const fetchData = async () => {
       try {
         setLoading(true)
-        const response = await fetch(`/shop/products/${id}`)
-        if (!response.ok) {
-          throw new Error('Failed to fetch product data')
-        }
-        const product = await response.json()
-        setProduct(product)
-        setLoading(false)
-      } catch (error) {
-        console.error('Error fetching product data:', error)
-        toast.error('Failed to fetch product data', 'Please try again later')
-        setLoading(false)
-      }
-    }
-    fetchData()
-  }, [id, toast])
-    // In a real app, this would be API calls to get product and categories
-    // For now, we'll use dummy data
-    const fetchData = async () => {
-      try {
         // Simulate API calls
         await new Promise(resolve => setTimeout(resolve, 1000))
         

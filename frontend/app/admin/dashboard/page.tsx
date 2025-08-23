@@ -5,12 +5,21 @@ import { motion } from "framer-motion"
 import { Package, ShoppingBag, Users, CreditCard, BarChart3, ArrowRight } from "lucide-react"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { useToast } from "@/contexts/ToastContext"
-import { useAuth } from "@/contexts/AuthContext"
+import { useToast } from "@/components/ui/use-toast"
+import { useAuthContext } from "@/contexts/AuthContext"
 import { useOptimizedFetch } from "@/hooks/useOptimizedFetch"
 
+interface DashboardCardProps {
+  title: string;
+  value: string | number;
+  description: string;
+  icon?: any;
+  linkText?: string;
+  linkHref?: string;
+}
+
 // Memoized dashboard card component to prevent unnecessary re-renders
-const DashboardCard = memo(({ title, value, description, icon, linkText, linkHref }) => {
+const DashboardCard = memo(({ title, value, description, icon, linkText, linkHref }: DashboardCardProps) => {
   const Icon = icon || Package
 
   return (
@@ -47,14 +56,16 @@ DashboardCard.displayName = 'DashboardCard'
 
 export default function AdminDashboard() {
   const { toast } = useToast()
-  const { user, isAdmin, navigateBack } = useAuthContext()
+  const { user, isAuthenticated } = useAuthContext()
 
-  // Use optimized fetch hook for dashboard data
+    // Use optimized fetch hook for dashboard data
   const { 
     data: dashboardData, 
     loading, 
-    error 
-  } = useOptimizedFetch('/api/admin/dashboard')
+    error
+  } = useOptimizedFetch(() => 
+    fetch('/api/admin/dashboard').then(res => res.json())
+  )
 
   // Extract dashboard metrics from data with fallbacks
   const metrics = dashboardData?.metrics || {
@@ -65,29 +76,29 @@ export default function AdminDashboard() {
   }
 
   useEffect(() => {
-    if (user && !isAdmin) {
+    if (user && user.role !== 'admin') {
       toast({
         title: 'Access Denied',
         description: 'You don\'t have permission to access this page.',
         variant: 'destructive',
       })
-      navigateBack('/')
+      return
     }
-  }, [user, isAdmin, navigateBack, toast])
+  }, [user, toast])
 
   // Handle fetch errors
   useEffect(() => {
     if (error) {
       toast({
         title: 'Error',
-        description: typeof error === 'string' ? error : error.message || 'Failed to load dashboard data',
+        description: typeof error === 'string' ? error : 'Failed to load dashboard data',
         variant: 'destructive',
       })
     }
   }, [error, toast])
 
   // Format currency
-  const formatCurrency = useCallback((amount) => {
+  const formatCurrency = useCallback((amount: number) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -101,7 +112,7 @@ export default function AdminDashboard() {
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Dashboard</h1>
           <p className="text-sm text-muted-foreground mt-1">Overview of your store</p>
         </div>
-        <Button variant="outline" onClick={navigateBack} size="sm" className="h-9">
+        <Button variant="outline" onClick={() => window.history.back()} size="sm" className="h-9">
           Back
         </Button>
       </div>
@@ -181,7 +192,7 @@ export default function AdminDashboard() {
             </div>
           ) : dashboardData?.recentActivity?.length > 0 ? (
             <div className="space-y-4">
-              {dashboardData.recentActivity.map((activity, index) => (
+              {dashboardData.recentActivity.map((activity: any, index: number) => (
                 <motion.div
                   key={activity.id || index}
                   className="flex items-start gap-4 border-b pb-4 last:border-0 last:pb-0"
@@ -258,7 +269,7 @@ export default function AdminDashboard() {
               </div>
             ) : dashboardData?.topProducts?.length > 0 ? (
               <div className="space-y-4">
-                {dashboardData.topProducts.map((product, index) => (
+                {dashboardData.topProducts.map((product: any, index: number) => (
                   <motion.div
                     key={product.id || index}
                     className="flex items-center gap-4"

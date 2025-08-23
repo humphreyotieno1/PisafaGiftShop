@@ -123,19 +123,18 @@ export default function UsersPage() {
         return
       }
       const payload: any = {
-        username: formData.name,
+        username: formData.username || formData.name,
         email: formData.email,
         password: formData.password,
         role: formData.role as any,
-        is_active: formData.active,
-        username: formData.username,
+        full_name: formData.name,
         phone: formData.phone,
         address: formData.address,
       }
       await adminApi.createUser(payload)
       await fetchUsers()
       setIsAddDialogOpen(false)
-      toast({ title: 'User created' })
+      toast({ title: 'User created', description: 'User has been successfully created.' })
     } catch (error) {
       console.error('Error creating user:', error)
       toast({ title: 'Error', description: 'Failed to create user', variant: 'destructive' })
@@ -155,10 +154,11 @@ export default function UsersPage() {
         role: formData.role as any,
         is_active: formData.active,
         password: formData.password || undefined,
-        username: formData.username,
+        username: formData.username || formData.name,
         phone: formData.phone,
         address: formData.address,
       })
+      setIsEditDialogOpen(false)
     } finally {
       setIsProcessing(false)
     }

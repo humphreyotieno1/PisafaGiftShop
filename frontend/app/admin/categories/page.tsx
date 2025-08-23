@@ -10,7 +10,7 @@ import { useAuthContext } from "@/contexts/AuthContext";
 import { useToast } from "@/components/ui/use-toast";
 import { adminApi } from "@/lib/api";
 import type { Category } from "@/types/api";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog"
+
 
 export default function AdminCategoriesPage() {
   const router = useRouter();
@@ -19,7 +19,7 @@ export default function AdminCategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null)
+
 
   useEffect(() => {
     if (!user || user.role !== 'admin') return;
@@ -72,7 +72,7 @@ export default function AdminCategoriesPage() {
               <CardHeader>
                 <CardTitle className="flex items-center justify-between">
                   {category.name}
-                  <Badge variant="secondary">
+                  <Badge variant="secondary" className="ml-2">
                     {(category.products?.length ?? 0)} products
                   </Badge>
                 </CardTitle>
@@ -96,7 +96,23 @@ export default function AdminCategoriesPage() {
                   >
                     View Products
                   </Button>
-                  <Button variant="outline" size="sm" onClick={() => setConfirmDeleteId(category.id)}>Delete</Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={async () => {
+                      if (confirm('Are you sure you want to delete this category? This action cannot be undone.')) {
+                        try {
+                          await adminApi.deleteCategory(category.id)
+                          setCategories(categories.filter(c => c.id !== category.id))
+                          toast({ title: 'Category deleted' })
+                        } catch (e) {
+                          toast({ title: 'Error', description: 'Failed to delete category', variant: 'destructive' })
+                        }
+                      }
+                    }}
+                  >
+                    Delete
+                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -109,30 +125,7 @@ export default function AdminCategoriesPage() {
           {searchTerm ? "No categories found matching your search." : "No categories available."}
         </div>
       )}
-      <AlertDialog open={confirmDeleteId !== null} onOpenChange={(open) => !open && setConfirmDeleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete category?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={async () => {
-              if (confirmDeleteId) {
-                try {
-                  await adminApi.deleteCategory(confirmDeleteId)
-                  setCategories(categories.filter(c => c.id !== confirmDeleteId))
-                  toast({ title: 'Category deleted' })
-                } catch (e) {
-                  toast({ title: 'Error', description: 'Failed to delete category', variant: 'destructive' })
-                } finally {
-                  setConfirmDeleteId(null)
-                }
-              }
-            }}>Delete</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+
     </div>
   );
 }

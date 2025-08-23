@@ -18,9 +18,10 @@ import type { Product, Category } from '@/types/api';
 interface ProductFormProps {
   product?: Product;
   mode: 'create' | 'edit';
+  onSuccess?: () => void;
 }
 
-export default function ProductForm({ product, mode }: ProductFormProps) {
+export default function ProductForm({ product, mode, onSuccess }: ProductFormProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { categories } = useProducts();
@@ -89,7 +90,11 @@ export default function ProductForm({ product, mode }: ProductFormProps) {
         });
       }
       toast({ title: mode === 'create' ? 'Product created' : 'Product updated' });
-      router.push('/admin/products');
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        router.push('/admin/products');
+      }
     } catch (error) {
       toast({ title: 'Failed to save product', description: 'Please try again', variant: 'destructive' });
     } finally {

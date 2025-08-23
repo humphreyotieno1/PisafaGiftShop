@@ -204,7 +204,7 @@ export default function Navbar() {
                     className="h-10 w-10 rounded-full hover:bg-gray-100 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-600 transition-all duration-200"
                     aria-label="User menu"
                   >
-                    <Avatar className="h-8 w-8">
+                    <Avatar ref={avatarRef} className="h-8 w-8">
                       {/* AvatarImage can be added when user image is available */}
                       <AvatarFallback>
                         {getInitials(user?.full_name || user?.username || 'U')}

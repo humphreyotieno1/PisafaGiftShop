@@ -56,12 +56,19 @@ export default function SettingsPage() {
           const data = await res.json()
           if (data?.data) setSettings(data.data)
         }
+      } catch (error) {
+        console.error('Error loading settings:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load settings. Please try again.",
+          variant: "destructive",
+        })
       } finally {
         setLoading(false)
       }
     }
     load()
-  }, [])
+  }, [toast])
 
   useEffect(() => {
     if (user && user.role !== 'admin') {
@@ -111,13 +118,16 @@ export default function SettingsPage() {
         credentials: 'include',
         body: JSON.stringify({ data: settings }),
       })
-      if (!res.ok) throw new Error('Failed to save settings')
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.detail || 'Failed to save settings')
+      }
       toast({ title: 'Settings saved', description: 'Your settings have been updated successfully.' })
     } catch (error) {
       console.error('Error saving settings:', error)
       toast({
         title: "Error",
-        description: "Failed to save settings. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to save settings. Please try again.",
         variant: "destructive",
       })
     } finally {

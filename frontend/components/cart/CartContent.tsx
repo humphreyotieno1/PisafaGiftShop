@@ -255,7 +255,7 @@ export default function CartContent() {
                 <Textarea
                   id="address"
                   value={checkoutData.address}
-                  onChange={(e) => setCheckoutData(prev => ({ ...prev, address: e.target.value }))}
+                  onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCheckoutData(prev => ({ ...prev, address: e.target.value }))}
                   placeholder="Enter your delivery address"
                   required
                   className="mt-1"

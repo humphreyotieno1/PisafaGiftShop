@@ -6,6 +6,7 @@ import { Plus, Edit, Trash2, MoreHorizontal, Search, Loader2 } from "lucide-reac
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,6 +40,7 @@ export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [categories, setCategories] = useState<Category[]>([])
@@ -49,6 +51,15 @@ export default function ProductsPage() {
     fetchProducts()
     fetchCategories()
   }, [user])
+
+  // Handle category filter from URL
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search)
+    const categoryId = urlParams.get('category')
+    if (categoryId) {
+      setSelectedCategory(parseInt(categoryId))
+    }
+  }, [])
 
   const fetchProducts = async () => {
     try {
@@ -85,10 +96,12 @@ export default function ProductsPage() {
     }
   }
 
-  const filtered = products.filter(p =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchQuery.toLowerCase())
-  )
+  const filtered = products.filter(p => {
+    const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         p.description.toLowerCase().includes(searchQuery.toLowerCase())
+    const matchesCategory = selectedCategory === null || p.category_id === selectedCategory
+    return matchesSearch && matchesCategory
+  })
 
   return (
     <div className="p-6 space-y-6">
@@ -104,12 +117,32 @@ export default function ProductsPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search products..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
         </div>
+        <Select value={selectedCategory?.toString() || "all"} onValueChange={(value) => setSelectedCategory(value === "all" ? null : parseInt(value))}>
+          <SelectTrigger className="w-[200px]">
+            <SelectValue placeholder="Filter by category" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Categories</SelectItem>
+            {categories.map((category) => (
+              <SelectItem key={category.id} value={category.id.toString()}>
+                {category.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle>All Products</CardTitle>
-          <CardDescription>Manage your catalog</CardDescription>
+          <CardDescription>
+            Manage your catalog
+            {selectedCategory && (
+              <span className="block text-sm text-muted-foreground mt-1">
+                Filtered by category: {categories.find(c => c.id === selectedCategory)?.name}
+              </span>
+            )}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {loading ? (
@@ -150,7 +183,14 @@ export default function ProductsPage() {
             <DialogTitle>{editingProduct ? 'Edit Product' : 'New Product'}</DialogTitle>
             <DialogDescription>Fill the form to {editingProduct ? 'update' : 'create'} a product</DialogDescription>
           </DialogHeader>
-          <ProductForm product={editingProduct || undefined} mode={editingProduct ? 'edit' : 'create'} />
+          <ProductForm 
+            product={editingProduct || undefined} 
+            mode={editingProduct ? 'edit' : 'create'} 
+            onSuccess={() => {
+              setIsDialogOpen(false);
+              fetchProducts();
+            }}
+          />
         </DialogContent>
       </Dialog>
 
