@@ -170,11 +170,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       href: "/admin/users",
       icon: <Users className="h-5 w-5" />,
     },
-    {
-      name: "Settings",
-      href: "/admin/settings",
-      icon: <Settings className="h-5 w-5" />,
-    },
+    // {
+    //   name: "Settings",
+    //   href: "/admin/settings",
+    //   icon: <Settings className="h-5 w-5" />,
+    // },
   ];
 
   // Loading state
