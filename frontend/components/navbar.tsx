@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { useCartContext } from '@/contexts/CartContext';
 import { useWishlistContext } from '@/contexts/WishlistContext';
@@ -43,6 +43,7 @@ export default function Navbar() {
   const { wishlistCount } = useWishlistContext();
   const { toast } = useToast();
   const router = useRouter();
+  const pathname = usePathname();
   const navRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -142,7 +143,7 @@ export default function Navbar() {
                 key={item.href}
                 href={item.href}
                 className="text-gray-700 hover:text-blue-700 hover:scale-105 px-3 py-2 text-sm font-medium transition-all duration-200"
-                aria-current={item.href === window.location.pathname ? 'page' : undefined}
+                aria-current={item.href === pathname ? 'page' : undefined}
               >
                 {item.label}
               </Link>
@@ -204,7 +205,7 @@ export default function Navbar() {
                     className="h-10 w-10 rounded-full hover:bg-gray-100 hover:scale-105 active:scale-95 focus-visible:ring-2 focus-visible:ring-blue-600 transition-all duration-200"
                     aria-label="User menu"
                   >
-                    <Avatar ref={avatarRef} className="h-8 w-8">
+                    <Avatar className="h-8 w-8">
                       {/* AvatarImage can be added when user image is available */}
                       <AvatarFallback>
                         {getInitials(user?.full_name || user?.username || 'U')}
@@ -366,7 +367,7 @@ export default function Navbar() {
                   href={item.href}
                   className="text-gray-700 hover:text-blue-600 hover:bg-gray-100 block px-3 py-2 rounded-md text-base font-medium transition-all duration-200"
                   onClick={() => setIsMenuOpen(false)}
-                  aria-current={item.href === window.location.pathname ? 'page' : undefined}
+                  aria-current={item.href === pathname ? 'page' : undefined}
                 >
                   {item.label}
                 </Link>

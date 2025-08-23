@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { motion } from "framer-motion"
 import { Filter } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,7 @@ import type { Product } from "@/types/api"
 export default function ShopContent() {
   const { toast } = useToast()
   const searchParams = useSearchParams()
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState("")
@@ -66,9 +67,9 @@ export default function ShopContent() {
       <div className="flex flex-col md:flex-row gap-8">
         <div className="hidden md:block w-64">
           <CategorySidebar selectedCategory={selectedCategory ? Number(selectedCategory) : null} onCategoryChange={(id) => {
-            const params = new URLSearchParams(window.location.search)
+            const params = new URLSearchParams(searchParams.toString())
             if (id === null) params.delete('category'); else params.set('category', String(id))
-            window.history.pushState({}, "", `?${params.toString()}`)
+            router.replace(`?${params.toString()}`, { scroll: false })
           }} />
         </div>
 
@@ -84,9 +85,9 @@ export default function ShopContent() {
               <SheetContent side="left" className="w-[300px] sm:w-[400px]" title="Filters">
                 <div className="py-4">
                   <CategorySidebar selectedCategory={selectedCategory ? Number(selectedCategory) : null} onCategoryChange={(id) => {
-                    const params = new URLSearchParams(window.location.search)
+                    const params = new URLSearchParams(searchParams.toString())
                     if (id === null) params.delete('category'); else params.set('category', String(id))
-                    window.history.pushState({}, "", `?${params.toString()}`)
+                    router.replace(`?${params.toString()}`, { scroll: false })
                     setIsFilterOpen(false)
                   }} />
                 </div>
@@ -125,7 +126,7 @@ export default function ShopContent() {
                 {searchQuery ? "No products found matching your search" : selectedCategory ? "No products found in this category" : "No products found"}
               </p>
               {(searchQuery || selectedCategory) && (
-                <Button variant="outline" onClick={() => { setSearchQuery(""); window.history.pushState({}, "", "/shop") }}>View All Products</Button>
+                <Button variant="outline" onClick={() => { setSearchQuery(""); router.push("/shop") }}>View All Products</Button>
               )}
             </div>
           ) : (
@@ -136,9 +137,9 @@ export default function ShopContent() {
               {pagination.pages > 1 && (
                 <div className="mt-8 flex justify-center">
                   <Pagination currentPage={currentPage} totalPages={pagination.pages} onPageChange={(page: number) => {
-                    const params = new URLSearchParams(window.location.search)
+                    const params = new URLSearchParams(searchParams.toString())
                     params.set("page", String(page))
-                    window.history.pushState({}, "", `?${params.toString()}`)
+                    router.replace(`?${params.toString()}`, { scroll: false })
                   }} />
                 </div>
               )}
@@ -149,4 +150,5 @@ export default function ShopContent() {
     </div>
   )
 }
+
 

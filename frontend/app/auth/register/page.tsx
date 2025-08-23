@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, ArrowLeft } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -26,7 +26,6 @@ const registerSchema = z.object({
 
 export default function RegisterPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { register: registerUser, checkAuth } = useAuthContext();
   const { toast } = useToast();
   const [showPassword, setShowPassword] = useState(false);
